@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MANAGER
+  SALES
+  OPERATIONS
+  ACCOUNTS
+}
+
+enum EnquiryStatus {
+  NEW
+  FOLLOW_UP
+  QUOTED
+  CONVERTED
+  LOST
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum PackageStatus {
+  DRAFT
+  PLANNING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  REQUESTED
+  ON_HOLD
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ServiceType {
+  FLIGHT
+  HOTEL
+  TRANSFER
+  ACTIVITY
+  VISA
+  CRUISE
+  INSURANCE
+  OTHER
+}
+
+enum FinancialStatus {
+  DRAFT
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CARD
+  PAYMENT_LINK
+  OTHER
+}
+
+model Company {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  legalName      String?
+  email          String?
+  phone          String?
+  gstin          String?
+  baseCurrency   String   @default("INR") @db.VarChar(3)
+  timezone       String   @default("Asia/Kolkata")
+  address        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  enquiries      Enquiry[]
+  quotations     Quotation[]
+  packages       TravelPackage[]
+  receipts       CustomerReceipt[]
+  supplierBills  SupplierBill[]
+  payments       SupplierPayment[]
+  @@index([name])
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  mobile       String?
+  passwordHash String
+  role         UserRole @default(SALES)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([companyId, email])
+  @@index([companyId, role])
+}
+
+model Customer {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  mobile      String?
+  alternateMobile String?
+  address     String?
+  city        String?
+  state       String?
+  country     String   @default("India")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  enquiries   Enquiry[]
+  quotations  Quotation[]
+  packages    TravelPackage[]
+  @@index([companyId, name])
+  @@index([companyId, mobile])
+}
+
+model Supplier {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  category    String?
+  contactName String?
+  email       String?
+  phone       String?
+  country     String?
+  taxNumber   String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bookings    Booking[]
+  bills       SupplierBill[]
+  @@index([companyId, name])
+}
+
+model Enquiry {
+  id            String        @id @default(uuid()) @db.Uuid
+  companyId     String        @db.Uuid
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId    String        @db.Uuid
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  referenceNo   String
+  destination   String?
+  travelStart   DateTime?
+  travelEnd     DateTime?
+  adults        Int           @default(1)
+  children      Int           @default(0)
+  budget        Decimal?      @db.Decimal(14,2)
+  currency      String        @default("INR") @db.VarChar(3)
+  travelType    String?
+  notes         String?
+  status        EnquiryStatus @default(NEW)
+  nextFollowUp  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  quotations    Quotation[]
+  @@unique([companyId, referenceNo])
+  @@index([companyId, status, nextFollowUp])
+}
+
+model Quotation {
+  id             String          @id @default(uuid()) @db.Uuid
+  companyId      String          @db.Uuid
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId     String          @db.Uuid
+  customer       Customer        @relation(fields: [customerId], references: [id])
+  enquiryId      String?         @db.Uuid
+  enquiry        Enquiry?         @relation(fields: [enquiryId], references: [id])
+  referenceNo    String
+  title          String
+  version        Int             @default(1)
+  status         QuotationStatus @default(DRAFT)
+  currency       String          @default("INR") @db.VarChar(3)
+  subtotal       Decimal         @default(0) @db.Decimal(14,2)
+  discount       Decimal         @default(0) @db.Decimal(14,2)
+  taxAmount      Decimal         @default(0) @db.Decimal(14,2)
+  totalAmount    Decimal         @default(0) @db.Decimal(14,2)
+  validUntil     DateTime?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  packages       TravelPackage[]
+  @@unique([companyId, referenceNo])
+  @@index([companyId, status])
+}
+
+model TravelPackage {
+  id             String        @id @default(uuid()) @db.Uuid
+  companyId      String        @db.Uuid
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId     String        @db.Uuid
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  quotationId    String?       @db.Uuid
+  quotation      Quotation?    @relation(fields: [quotationId], references: [id])
+  referenceNo    String
+  title          String
+  destination    String?
+  travelStart    DateTime?
+  travelEnd      DateTime?
+  adults         Int           @default(1)
+  children       Int           @default(0)
+  status         PackageStatus @default(DRAFT)
+  currency       String        @default("INR") @db.VarChar(3)
+  exchangeRate   Decimal       @default(1) @db.Decimal(18,8)
+  saleAmount     Decimal       @default(0) @db.Decimal(14,2)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  bookings       Booking[]
+  itineraryDays  ItineraryDay[]
+  receipts       CustomerReceipt[]
+  supplierBills  SupplierBill[]
+  @@unique([companyId, referenceNo])
+  @@index([companyId, status, travelStart])
+}
+
+model Booking {
+  id             String        @id @default(uuid()) @db.Uuid
+  packageId      String        @db.Uuid
+  travelPackage  TravelPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  supplierId     String?       @db.Uuid
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+  referenceNo    String
+  serviceType    ServiceType
+  description    String
+  serviceDate    DateTime?
+  confirmationNo String?
+  status         BookingStatus @default(REQUESTED)
+  supplierCost   Decimal       @default(0) @db.Decimal(14,2)
+  costCurrency   String        @default("INR") @db.VarChar(3)
+  costExchangeRate Decimal     @default(1) @db.Decimal(18,8)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  @@unique([packageId, referenceNo])
+  @@index([packageId, status])
+  @@index([supplierId])
+}
+
+model ItineraryDay {
+  id          String        @id @default(uuid()) @db.Uuid
+  packageId   String        @db.Uuid
+  travelPackage TravelPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  dayNumber   Int
+  date        DateTime?
+  title       String
+  description String?
+  hotel       String?
+  meals       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  @@unique([packageId, dayNumber])
+}
+
+model CustomerReceipt {
+  id             String          @id @default(uuid()) @db.Uuid
+  companyId      String          @db.Uuid
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  packageId      String          @db.Uuid
+  travelPackage  TravelPackage   @relation(fields: [packageId], references: [id])
+  receiptNo      String
+  receivedAt     DateTime        @default(now())
+  amount         Decimal         @db.Decimal(14,2)
+  currency       String          @default("INR") @db.VarChar(3)
+  method         PaymentMethod
+  reference      String?
+  notes          String?
+  status         FinancialStatus @default(OPEN)
+  createdAt      DateTime        @default(now())
+  @@unique([companyId, receiptNo])
+  @@index([companyId, receivedAt])
+}
+
+model SupplierBill {
+  id             String          @id @default(uuid()) @db.Uuid
+  companyId      String          @db.Uuid
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  packageId      String          @db.Uuid
+  travelPackage  TravelPackage   @relation(fields: [packageId], references: [id])
+  supplierId     String          @db.Uuid
+  supplier       Supplier        @relation(fields: [supplierId], references: [id])
+  billNo         String
+  supplierInvoiceNo String?
+  billDate       DateTime
+  dueDate        DateTime?
+  amount         Decimal         @db.Decimal(14,2)
+  currency       String          @default("INR") @db.VarChar(3)
+  taxAmount      Decimal         @default(0) @db.Decimal(14,2)
+  status         FinancialStatus @default(OPEN)
+  notes          String?
+  payments       SupplierPaymentAllocation[]
+  createdAt      DateTime        @default(now())
+  @@unique([companyId, billNo])
+  @@index([companyId, status, dueDate])
+}
+
+model SupplierPayment {
+  id             String          @id @default(uuid()) @db.Uuid
+  companyId      String          @db.Uuid
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  paymentNo      String
+  paidAt         DateTime        @default(now())
+  amount         Decimal         @db.Decimal(14,2)
+  currency       String          @default("INR") @db.VarChar(3)
+  method         PaymentMethod
+  reference      String?
+  notes          String?
+  allocations    SupplierPaymentAllocation[]
+  createdAt      DateTime        @default(now())
+  @@unique([companyId, paymentNo])
+  @@index([companyId, paidAt])
+}
+
+model SupplierPaymentAllocation {
+  id          String          @id @default(uuid()) @db.Uuid
+  paymentId   String          @db.Uuid
+  payment     SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  billId      String          @db.Uuid
+  bill        SupplierBill    @relation(fields: [billId], references: [id])
+  amount      Decimal         @db.Decimal(14,2)
+  createdAt   DateTime        @default(now())
+  @@unique([paymentId, billId])
+  @@index([billId])
+}
