@@ -43,7 +43,7 @@ function bookingsForDate(pkg: PackageOption | undefined, date: string) {
   };
 }
 const moneyText = (v: unknown, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(v || 0));
-const MEDIA_MARKER = "\\n\\n[[TRAVELDESK_MEDIA:";
+const MEDIA_MARKER = "\n\n[[TRAVELDESK_MEDIA:";
 function splitSavedPhotos(value: string | null | undefined): { text: string; photos: TravelPhoto[] } {
   const source = value || "";
   const index = source.indexOf(MEDIA_MARKER);
@@ -115,7 +115,7 @@ function draftDayPlan(prompt: string, pkg: PackageOption | undefined, dayNumber:
         " · Status: " + booking.status.replaceAll("_", " ").toLowerCase());
     });
   }
-  return { title, description: lines.join("\\n") };
+  return { title, description: lines.join("\n") };
 }
 
 export function ItineraryWorkspace() {
@@ -228,7 +228,7 @@ export function ItineraryWorkspace() {
     setActivitySearch(prompt);
   }
   async function searchPlaces(kind: "hotel" | "attraction") {
-    const query = kind === "hotel" ? form.hotel.split("\\n")[0].trim() : activitySearch.trim();
+    const query = kind === "hotel" ? form.hotel.split("\n")[0].trim() : activitySearch.trim();
     if (!query || query.length < 3) {
       setAssistantError(kind === "hotel" ? "Enter a hotel name first." : "Enter an attraction or activity to search.");
       return;
@@ -279,7 +279,7 @@ export function ItineraryWorkspace() {
       place.website ? "Website: " + place.website : "",
       "Map: " + place.mapUrl,
       "Location source: OpenStreetMap",
-    ].filter(Boolean).join("\\n");
+    ].filter(Boolean).join("\n");
     touched.current.hotel = true;
     setForm((f) => ({ ...f, hotel: details }));
     setHotelPlaces([]);
@@ -289,7 +289,7 @@ export function ItineraryWorkspace() {
   function addActivityPlace(place: PlaceSuggestion) {
     const line = "Suggested stop: " + place.name + " — " + place.address + " (verify timings and admission before confirming).";
     touched.current.description = true;
-    setForm((f) => ({ ...f, description: [f.description.trim(), line].filter(Boolean).join("\\n") }));
+    setForm((f) => ({ ...f, description: [f.description.trim(), line].filter(Boolean).join("\n") }));
     setAssistantNotice("Added as a suggested stop. It is not a confirmed booking.");
   }
   function togglePhoto(photo: TravelPhoto) {
@@ -331,7 +331,7 @@ export function ItineraryWorkspace() {
     {notice && <div className="workflow-notice">{notice}</div>}{error && !open && <div className="form-error workflow-error">{error}</div>}
     <section className="panel section-list workflow-list"><div className="list-toolbar"><div><h2>Day-wise itinerary</h2><p>Each package can have one entry for each day number.</p></div><label className="list-search"><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search package, customer or activity"/></label></div>
       {loading ? <div className="workflow-empty">Loading itinerary…</div> : !packages.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>Create a travel package first</b><p>Itinerary days are attached to a package and its customer.</p></div> : !filtered.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>{query ? "No matching itinerary days" : "No itinerary days yet"}</b><p>{query ? "Try another search." : "Start creating a day-wise plan for a customer package."}</p><button className="button button-primary" onClick={() => start()}><Plus size={15}/> Add first day</button></div> :
-      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{splitSavedPhotos(d.description).text || "No activity description"}</small>{splitSavedPhotos(d.description).photos.length > 0 && <div className="itinerary-saved-gallery">{splitSavedPhotos(d.description).photos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.title} title={photo.title}/>)}</div>}</td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel?.split("\\n")[0], d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
+      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{splitSavedPhotos(d.description).text || "No activity description"}</small>{splitSavedPhotos(d.description).photos.length > 0 && <div className="itinerary-saved-gallery">{splitSavedPhotos(d.description).photos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.title} title={photo.title}/>)}</div>}</td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel?.split("\n")[0], d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
       <div className="list-footer">Live database records <span>{filtered.length} shown</span></div>
     </section>
     {open && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><form className="customer-modal workflow-modal" onSubmit={save}>
@@ -363,12 +363,12 @@ export function ItineraryWorkspace() {
           {hotelPlaces.length > 0 && <div className="assistant-result-list">{hotelPlaces.map((place) => <div className="assistant-place-result" key={place.id}><div><b>{place.name}</b><small>{place.address}</small>{place.phone && <small>Phone: {place.phone}</small>}{place.website && <small><a href={place.website} target="_blank" rel="noreferrer">{place.website}</a></small>}<a href={place.mapUrl} target="_blank" rel="noreferrer">Open map · © OpenStreetMap</a></div><button type="button" className="button button-secondary" onClick={() => chooseHotel(place)}>Use hotel</button></div>)}</div>}
         </div>
         <div className="wide-field assistant-search-panel">
-          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Hotel and activity photos</b><small>Free Wikimedia Commons images. Check the suggested image is the correct place and retain its license credit.</small></div><button type="button" className="button button-secondary" disabled={photoLoading} onClick={() => searchPhotos(form.hotel.split("\\n")[0].trim() || form.title || selectedPackage?.destination || "")}>{photoLoading ? "Searching…" : "Find photos"}</button></div>
+          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Hotel and activity photos</b><small>Free Wikimedia Commons images. Check the suggested image is the correct place and retain its license credit.</small></div><button type="button" className="button button-secondary" disabled={photoLoading} onClick={() => searchPhotos(form.hotel.split("\n")[0].trim() || form.title || selectedPackage?.destination || "")}>{photoLoading ? "Searching…" : "Find photos"}</button></div>
           {assistantError && <p className="assistant-error">{assistantError}</p>}
           {assistantNotice && <p className="assistant-notice">{assistantNotice}</p>}
           {photos.length > 0 && <div className="assistant-photo-grid">{photos.map((photo) => {
             const chosen = selectedPhotos.some((item) => item.id === photo.id);
-            return <button type="button" key={photo.id} className={"assistant-photo" + (chosen ? " selected" : "")} onClick={() => togglePhoto(photo)}><img src={photo.url} alt={photo.title}/><span>{chosen ? "Selected" : "Add photo"}</span><b>{photo.title}</b><small>{photo.artist || "Author not listed"} · {photo.license}</small><a href={photo.sourceUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Source and license</a></button>;
+            return <div key={photo.id} className={"assistant-photo" + (chosen ? " selected" : "")}><button type="button" className="assistant-photo-select" onClick={() => togglePhoto(photo)}><img src={photo.url} alt={photo.title}/><span>{chosen ? "Selected" : "Add photo"}</span><b>{photo.title}</b><small>{photo.artist || "Author not listed"} · {photo.license}</small></button><a href={photo.sourceUrl} target="_blank" rel="noreferrer">Source and license</a></div>;
           })}</div>}
           {selectedPhotos.length > 0 && <small>{selectedPhotos.length} photo(s) selected. Photo source and license details are saved with the day.</small>}
         </div>
