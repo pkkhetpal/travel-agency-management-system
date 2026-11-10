@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, Search, ArrowUpRight, MoreHorizontal } from "lucide-react";
 
 type RecordRow = { title: string; subtitle: string; detail: string; status: string; tone: "green"|"blue"|"amber"|"gray" };
-type SectionConfig = { title: string; description: string; action: string; metrics: {label:string;value:string}[]; columns: string[]; rows: RecordRow[] };
+type SectionConfig = { title: string; description: string; action: string; metrics: readonly {label:string;value:string}[]; columns: readonly string[]; rows: readonly RecordRow[] };
 
 export function SectionPage({ config }: { config: SectionConfig }) {
   return <><div className="page-heading"><div><div className="eyebrow">TRAVELDESK WORKSPACE</div><h1>{config.title}</h1><p>{config.description}</p></div><button className="button button-primary"><Plus size={16}/>{config.action}</button></div>
