@@ -125,8 +125,19 @@ export function openPrintableDocument(document: PrintableDocument): void {
 </html>`);
   popup.document.close();
   popup.document.getElementById("printButton")?.addEventListener("click", () => popup.print());
-  popup.setTimeout(() => {
+  const images = Array.from(popup.document.images);
+  const imageLoads = images.map((image) => image.complete
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+        image.onload = () => resolve();
+        image.onerror = () => resolve();
+      }));
+  void Promise.race([
+    Promise.all(imageLoads),
+    new Promise<void>((resolve) => popup.setTimeout(resolve, 3500)),
+  ]).then(() => {
+    if (popup.closed) return;
     popup.focus();
     popup.print();
-  }, 450);
+  });
 }
