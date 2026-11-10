@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Edit2, FileText, Plus, Receipt, Search, Trash2, Wallet, X } from "lucide-react";
 
 type BookingOption = { id: string; serviceType: string; description: string; serviceDate: string | null; confirmationNo: string | null; status: string; supplier: { name: string } | null };
+type PlaceSuggestion = { id: string; name: string; address: string; phone: string; website: string; category: string; latitude: number; longitude: number; mapUrl: string; source: string; kind: string };
+type TravelPhoto = { id: string; title: string; url: string; sourceUrl: string; artist: string; license: string; licenseUrl: string };
 type PackageOption = { id: string; title: string; referenceNo: string; customer: { name: string }; saleAmount?: string | number; currency?: string; travelStart?: string | null; travelEnd?: string | null; destination?: string | null; adults?: number; children?: number; bookings?: BookingOption[] };
 type SupplierOption = { id: string; name: string };
 type ItineraryDay = { id: string; packageId: string; dayNumber: number; date: string | null; title: string; description: string | null; hotel: string | null; meals: string | null; travelPackage: PackageOption };
@@ -41,6 +43,80 @@ function bookingsForDate(pkg: PackageOption | undefined, date: string) {
   };
 }
 const moneyText = (v: unknown, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(v || 0));
+const MEDIA_MARKER = "\\n\\n[[TRAVELDESK_MEDIA:";
+function splitSavedPhotos(value: string | null | undefined): { text: string; photos: TravelPhoto[] } {
+  const source = value || "";
+  const index = source.indexOf(MEDIA_MARKER);
+  if (index < 0) return { text: source, photos: [] };
+  const encoded = source.slice(index + MEDIA_MARKER.length);
+  const end = encoded.indexOf("]]");
+  if (end < 0) return { text: source, photos: [] };
+  try {
+    const parsed = JSON.parse(decodeURIComponent(encoded.slice(0, end)));
+    return { text: source.slice(0, index), photos: Array.isArray(parsed) ? parsed.slice(0, 3) : [] };
+  } catch {
+    return { text: source.slice(0, index), photos: [] };
+  }
+}
+function descriptionWithPhotos(value: string, photos: TravelPhoto[]) {
+  const clean = splitSavedPhotos(value).text.trim();
+  return photos.length ? clean + MEDIA_MARKER + encodeURIComponent(JSON.stringify(photos.slice(0, 3))) + "]]" : clean;
+}
+function draftDayPlan(prompt: string, pkg: PackageOption | undefined, dayNumber: number, date: string, bookings: BookingOption[]) {
+  const destination = pkg?.destination || "your destination";
+  const input = prompt.trim();
+  const lower = input.toLowerCase();
+  const arrival = /arriv|airport|land|flight into|check.?in/.test(lower);
+  const departure = /depart|departure|return flight|airport drop|check.?out/.test(lower);
+  const transfer = /transfer|pick.?up|drop.?off/.test(lower);
+  const sightseeing = /sightsee|city tour|explore|attraction|visit|tour/.test(lower);
+  let title = input || "Explore " + destination;
+  if (arrival) title = "Arrival in " + destination;
+  else if (departure) title = "Departure from " + destination;
+  else if (transfer) title = "Transfer in " + destination;
+  else if (!input) title = "Day " + dayNumber + " – " + destination;
+  const lines: string[] = [];
+  if (arrival) {
+    lines.push("Arrive at the airport in " + destination + ". Complete immigration formalities and collect baggage.");
+    lines.push(bookings.some((b) => b.serviceType === "TRANSFER")
+      ? "Follow the pickup instructions in the transfer booking recorded for this day."
+      : "Transfer to the hotel can be arranged separately if it is not already confirmed.");
+    lines.push(bookings.some((b) => b.serviceType === "HOTEL")
+      ? "Proceed to the hotel listed below and complete check-in according to its confirmation."
+      : "Check in to the selected hotel when the room is available; confirm the property's check-in time directly.");
+    lines.push("Keep the rest of the day flexible to recover after the journey.");
+  } else if (departure) {
+    lines.push("Check out of the hotel and confirm that all luggage and travel documents are ready.");
+    lines.push(bookings.some((b) => b.serviceType === "TRANSFER")
+      ? "Use the transfer pickup details recorded in the confirmed booking."
+      : "Arrange transport to the airport and confirm the pickup time separately.");
+    lines.push("Proceed to the airport with sufficient time for check-in, security and boarding.");
+  } else if (transfer) {
+    lines.push("Meet the driver at the agreed pickup point and verify the vehicle and contact details before departure.");
+    lines.push("Allow time for traffic and check the destination address before setting off.");
+    lines.push("The transport is only confirmed when a matching booking is recorded in TravelDesk.");
+  } else if (sightseeing) {
+    lines.push("Start after breakfast, subject to the hotel's meal arrangements.");
+    lines.push("Explore the attractions selected for " + destination + ". Confirm opening hours, admission and travel time before departure.");
+    lines.push("Keep time for meals, rest breaks and travel between stops.");
+    lines.push("Return to the hotel or continue with the next confirmed activity.");
+  } else {
+    lines.push("Begin the day with breakfast, if included in the hotel/package arrangement.");
+    lines.push(input ? "Plan the day around: " + input + "." : "Use this day for the activities and experiences selected for " + destination + ".");
+    lines.push("Confirm any activity timings, transport and admission requirements before departure.");
+    lines.push("Keep some flexible time for meals and rest.");
+  }
+  if (bookings.length) {
+    lines.push("", "Bookings already recorded for " + (date || "this day") + ":");
+    bookings.forEach((booking) => {
+      lines.push("• " + booking.serviceType.replaceAll("_", " ") + ": " + booking.description +
+        (booking.supplier?.name ? " · Supplier: " + booking.supplier.name : "") +
+        (booking.confirmationNo ? " · Confirmation: " + booking.confirmationNo : "") +
+        " · Status: " + booking.status.replaceAll("_", " ").toLowerCase());
+    });
+  }
+  return { title, description: lines.join("\\n") };
+}
 
 export function ItineraryWorkspace() {
   const blank: FormState = { packageId: "", dayNumber: "1", date: "", title: "", description: "", hotel: "", meals: "" };
@@ -55,6 +131,15 @@ export function ItineraryWorkspace() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const touched = useRef({ date: false, title: false, description: false, hotel: false, meals: false });
+  const [hotelPlaces, setHotelPlaces] = useState<PlaceSuggestion[]>([]);
+  const [activityPlaces, setActivityPlaces] = useState<PlaceSuggestion[]>([]);
+  const [photos, setPhotos] = useState<TravelPhoto[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<TravelPhoto[]>([]);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [placeLoading, setPlaceLoading] = useState<"hotel" | "attraction" | "">("");
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [assistantNotice, setAssistantNotice] = useState("");
+  const [assistantError, setAssistantError] = useState("");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/itineraries", { cache: "no-store" });
@@ -72,7 +157,15 @@ export function ItineraryWorkspace() {
     touched.current = day
       ? { date: true, title: true, description: true, hotel: true, meals: true }
       : { date: false, title: false, description: false, hotel: false, meals: false };
-    setForm(day ? { packageId: day.packageId, dayNumber: String(day.dayNumber), date: dateValue(day.date), title: day.title, description: day.description || "", hotel: day.hotel || "", meals: day.meals || "" } : { ...blank });
+    const saved = splitSavedPhotos(day?.description);
+    setSelectedPhotos(saved.photos);
+    setPhotos([]);
+    setHotelPlaces([]);
+    setActivityPlaces([]);
+    setAssistantNotice("");
+    setAssistantError("");
+    setActivitySearch(day?.title || "");
+    setForm(day ? { packageId: day.packageId, dayNumber: String(day.dayNumber), date: dateValue(day.date), title: day.title, description: saved.text, hotel: day.hotel || "", meals: day.meals || "" } : { ...blank });
     setOpen(true);
   }
   function setField(k: string, v: string) {
@@ -85,6 +178,13 @@ export function ItineraryWorkspace() {
     const date = addDaysISO(pkg?.travelStart, dayNumber);
     touched.current = { date: false, title: false, description: false, hotel: false, meals: false };
     const auto = bookingsForDate(pkg, date);
+    setSelectedPhotos([]);
+    setPhotos([]);
+    setHotelPlaces([]);
+    setActivityPlaces([]);
+    setActivitySearch("");
+    setAssistantNotice("");
+    setAssistantError("");
     setForm((f) => ({ ...f, packageId, date, title: pkg ? "Day " + dayNumber + " – " + (pkg.destination || pkg.title) : "", description: auto.description, hotel: auto.hotel, meals: "" }));
   }
   function changeDayNumber(value: string) {
@@ -108,13 +208,106 @@ export function ItineraryWorkspace() {
       ...(!touched.current.hotel ? { hotel: auto.hotel } : {}),
     }));
   }
-  function close() { setOpen(false); setEditing(null); setError(""); }
+  function generateDayPlan() {
+    const prompt = form.title.trim() || form.description.trim();
+    if (!selectedPackage) {
+      setAssistantError("Choose a travel package first.");
+      return;
+    }
+    if (!prompt) {
+      setAssistantError("Enter a short activity, such as ‘Arrive at Singapore airport’.");
+      return;
+    }
+    const bookingData = bookingsForDate(selectedPackage, form.date).matches;
+    const draft = draftDayPlan(prompt, selectedPackage, Number(form.dayNumber) || 1, form.date, bookingData);
+    touched.current.title = true;
+    touched.current.description = true;
+    setForm((f) => ({ ...f, title: draft.title, description: draft.description }));
+    setAssistantError("");
+    setAssistantNotice("A free template-based draft is ready. Review it and adjust details before saving.");
+    setActivitySearch(prompt);
+  }
+  async function searchPlaces(kind: "hotel" | "attraction") {
+    const query = kind === "hotel" ? form.hotel.split("\\n")[0].trim() : activitySearch.trim();
+    if (!query || query.length < 3) {
+      setAssistantError(kind === "hotel" ? "Enter a hotel name first." : "Enter an attraction or activity to search.");
+      return;
+    }
+    setPlaceLoading(kind);
+    setAssistantError("");
+    setAssistantNotice("");
+    try {
+      const params = new URLSearchParams({ query, destination: selectedPackage?.destination || "", kind });
+      const response = await fetch("/api/itineraries/places?" + params.toString(), { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not search places.");
+      const results = (data.places || []) as PlaceSuggestion[];
+      if (kind === "hotel") setHotelPlaces(results); else setActivityPlaces(results);
+      if (!results.length) setAssistantNotice("No matching OpenStreetMap places were found. Check the spelling or try a shorter search.");
+    } catch (e) {
+      setAssistantError(e instanceof Error ? e.message : "Could not search places.");
+    } finally {
+      setPlaceLoading("");
+    }
+  }
+  async function searchPhotos(queryOverride?: string) {
+    const query = (queryOverride || form.title || selectedPackage?.destination || "").trim();
+    if (query.length < 3) {
+      setAssistantError("Enter a day title, hotel or destination before searching for photos.");
+      return;
+    }
+    setPhotoLoading(true);
+    setAssistantError("");
+    setAssistantNotice("");
+    try {
+      const params = new URLSearchParams({ query, destination: selectedPackage?.destination || "" });
+      const response = await fetch("/api/itineraries/images?" + params.toString(), { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not search photos.");
+      setPhotos((data.photos || []) as TravelPhoto[]);
+      if (!(data.photos || []).length) setAssistantNotice("No matching Commons photographs were found. Try a broader search.");
+    } catch (e) {
+      setAssistantError(e instanceof Error ? e.message : "Could not search photos.");
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+  function chooseHotel(place: PlaceSuggestion) {
+    const details = [
+      place.name, place.address,
+      place.phone ? "Phone: " + place.phone : "",
+      place.website ? "Website: " + place.website : "",
+      "Map: " + place.mapUrl,
+      "Location source: OpenStreetMap",
+    ].filter(Boolean).join("\\n");
+    touched.current.hotel = true;
+    setForm((f) => ({ ...f, hotel: details }));
+    setHotelPlaces([]);
+    setAssistantNotice("Hotel details added where OpenStreetMap had them. Please verify the property before saving.");
+    void searchPhotos(place.name + " hotel");
+  }
+  function addActivityPlace(place: PlaceSuggestion) {
+    const line = "Suggested stop: " + place.name + " — " + place.address + " (verify timings and admission before confirming).";
+    touched.current.description = true;
+    setForm((f) => ({ ...f, description: [f.description.trim(), line].filter(Boolean).join("\\n") }));
+    setAssistantNotice("Added as a suggested stop. It is not a confirmed booking.");
+  }
+  function togglePhoto(photo: TravelPhoto) {
+    setSelectedPhotos((current) => current.some((item) => item.id === photo.id)
+      ? current.filter((item) => item.id !== photo.id)
+      : current.length >= 3 ? current : [...current, photo]);
+    if (selectedPhotos.length >= 3 && !selectedPhotos.some((item) => item.id === photo.id)) {
+      setAssistantNotice("Up to three photos can be attached to one itinerary day.");
+    }
+  }
+  function close() { setOpen(false); setEditing(null); setError(""); setAssistantError(""); }
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); if (busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(editing ? "/api/itineraries/" + editing.id : "/api/itineraries", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const payload = { ...form, description: descriptionWithPhotos(form.description, selectedPhotos) };
+      const response = await fetch(editing ? "/api/itineraries/" + editing.id : "/api/itineraries", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not save itinerary day.");
       close(); setNotice(editing ? "Itinerary day updated." : "Itinerary day saved."); await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save itinerary day."); }
@@ -138,7 +331,7 @@ export function ItineraryWorkspace() {
     {notice && <div className="workflow-notice">{notice}</div>}{error && !open && <div className="form-error workflow-error">{error}</div>}
     <section className="panel section-list workflow-list"><div className="list-toolbar"><div><h2>Day-wise itinerary</h2><p>Each package can have one entry for each day number.</p></div><label className="list-search"><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search package, customer or activity"/></label></div>
       {loading ? <div className="workflow-empty">Loading itinerary…</div> : !packages.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>Create a travel package first</b><p>Itinerary days are attached to a package and its customer.</p></div> : !filtered.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>{query ? "No matching itinerary days" : "No itinerary days yet"}</b><p>{query ? "Try another search." : "Start creating a day-wise plan for a customer package."}</p><button className="button button-primary" onClick={() => start()}><Plus size={15}/> Add first day</button></div> :
-      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{d.description || "No activity description"}</small></td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel, d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
+      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{splitSavedPhotos(d.description).text || "No activity description"}</small>{splitSavedPhotos(d.description).photos.length > 0 && <div className="itinerary-saved-gallery">{splitSavedPhotos(d.description).photos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.title} title={photo.title}/>)}</div>}</td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel?.split("\\n")[0], d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
       <div className="list-footer">Live database records <span>{filtered.length} shown</span></div>
     </section>
     {open && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><form className="customer-modal workflow-modal" onSubmit={save}>
@@ -153,9 +346,32 @@ export function ItineraryWorkspace() {
         </div>}
         <label>Day number *<input type="number" min="1" step="1" required value={form.dayNumber} onChange={(e) => changeDayNumber(e.target.value)}/></label>
         <label>Date<input type="date" value={form.date} onChange={(e) => changeItineraryDate(e.target.value)}/></label>
-        <label className="wide-field">Day title *<input required value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="e.g. Arrive in Singapore and city tour"/></label>
-        <label className="wide-field">Activities / description<textarea rows={3} value={form.description} onChange={(e) => setField("description", e.target.value)}/></label>
-        <label>Hotel / accommodation<input value={form.hotel} onChange={(e) => setField("hotel", e.target.value)}/></label>
+        <label className="wide-field">Day title *<input required value={form.title} onChange={(e) => { setField("title", e.target.value); setActivitySearch(e.target.value); }} placeholder="e.g. Arrive at Singapore airport"/></label>
+        <div className="wide-field itinerary-assistant">
+          <div><b>Free itinerary helper</b><small>Enter a simple day idea above, then generate a practical editable draft. This uses built-in travel templates, not paid AI.</small></div>
+          <button type="button" className="button button-secondary" onClick={generateDayPlan}>Generate day plan</button>
+        </div>
+        <label className="wide-field">Activities / description<textarea rows={5} value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Your day plan will appear here. You can edit every line."/></label>
+        <div className="wide-field assistant-search-panel">
+          <div className="assistant-search-heading"><b>Find nearby attractions</b><small>Search OpenStreetMap once when you click; results are suggestions, not bookings.</small></div>
+          <div className="assistant-search-row"><input value={activitySearch} onChange={(e) => setActivitySearch(e.target.value)} placeholder="e.g. Gardens by the Bay, museum, temple"/><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("attraction")}>{placeLoading === "attraction" ? "Searching…" : "Find places"}</button></div>
+          {activityPlaces.length > 0 && <div className="assistant-result-list">{activityPlaces.map((place) => <div className="assistant-place-result" key={place.id}><div><b>{place.name}</b><small>{place.address}</small><small>{place.category}</small><a href={place.mapUrl} target="_blank" rel="noreferrer">Open map</a></div><button type="button" className="button button-secondary" onClick={() => addActivityPlace(place)}>Add stop</button></div>)}</div>}
+        </div>
+        <label className="wide-field">Hotel / accommodation<textarea rows={3} value={form.hotel} onChange={(e) => setField("hotel", e.target.value)} placeholder="Enter the hotel name. Choose a result to add its address and contact details."/></label>
+        <div className="wide-field assistant-search-panel">
+          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Find hotel details</b><small>Look up a hotel name, address, phone, website and map link when listed in OpenStreetMap.</small></div><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("hotel")}>{placeLoading === "hotel" ? "Searching…" : "Find hotel"}</button></div>
+          {hotelPlaces.length > 0 && <div className="assistant-result-list">{hotelPlaces.map((place) => <div className="assistant-place-result" key={place.id}><div><b>{place.name}</b><small>{place.address}</small>{place.phone && <small>Phone: {place.phone}</small>}{place.website && <small><a href={place.website} target="_blank" rel="noreferrer">{place.website}</a></small>}<a href={place.mapUrl} target="_blank" rel="noreferrer">Open map · © OpenStreetMap</a></div><button type="button" className="button button-secondary" onClick={() => chooseHotel(place)}>Use hotel</button></div>)}</div>}
+        </div>
+        <div className="wide-field assistant-search-panel">
+          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Hotel and activity photos</b><small>Free Wikimedia Commons images. Check the suggested image is the correct place and retain its license credit.</small></div><button type="button" className="button button-secondary" disabled={photoLoading} onClick={() => searchPhotos(form.hotel.split("\\n")[0].trim() || form.title || selectedPackage?.destination || "")}>{photoLoading ? "Searching…" : "Find photos"}</button></div>
+          {assistantError && <p className="assistant-error">{assistantError}</p>}
+          {assistantNotice && <p className="assistant-notice">{assistantNotice}</p>}
+          {photos.length > 0 && <div className="assistant-photo-grid">{photos.map((photo) => {
+            const chosen = selectedPhotos.some((item) => item.id === photo.id);
+            return <button type="button" key={photo.id} className={"assistant-photo" + (chosen ? " selected" : "")} onClick={() => togglePhoto(photo)}><img src={photo.url} alt={photo.title}/><span>{chosen ? "Selected" : "Add photo"}</span><b>{photo.title}</b><small>{photo.artist || "Author not listed"} · {photo.license}</small><a href={photo.sourceUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Source and license</a></button>;
+          })}</div>}
+          {selectedPhotos.length > 0 && <small>{selectedPhotos.length} photo(s) selected. Photo source and license details are saved with the day.</small>}
+        </div>
         <label>Meals<input value={form.meals} onChange={(e) => setField("meals", e.target.value)} placeholder="Meals are entered manually (not stored on bookings yet)"/></label>
       </div>
       <div className="modal-actions"><button type="button" className="button button-secondary" onClick={close}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Save itinerary day"}</button></div>
