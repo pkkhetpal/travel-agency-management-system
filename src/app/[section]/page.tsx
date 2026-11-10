@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { SectionPage } from "@/components/section-page";
 import { requirePageSession } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
+import { SalesWorkspace } from "@/components/sales-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,9 @@ export default async function Page({ params }: { params: { section: string } }) 
   const section = params.section as keyof typeof definitions;
   const definition = definitions[section];
   if (!definition) notFound();
+  if (section === "enquiries" || section === "quotations" || section === "packages") {
+    return <SalesWorkspace kind={section} />;
+  }
 
   let metrics: { label: string; value: string }[] = [];
   let rows: { title: string; subtitle: string; detail: string; status: string; tone: Tone }[] = [];
