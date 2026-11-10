@@ -3,6 +3,7 @@ import { SectionPage } from "@/components/section-page";
 import { requirePageSession } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 import { SalesWorkspace } from "@/components/sales-workspace";
+import { OperationsWorkspace } from "@/components/operations-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,9 @@ export default async function Page({ params }: { params: { section: string } }) 
   const section = params.section;
   if (section === "enquiries" || section === "quotations" || section === "packages") {
     return <SalesWorkspace kind={section} />;
+  }
+  if (section === "suppliers" || section === "bookings") {
+    return <OperationsWorkspace kind={section} />;
   }
   const definition = definitions[section as keyof typeof definitions];
   if (!definition) notFound();
