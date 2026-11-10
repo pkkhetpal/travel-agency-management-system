@@ -25,3 +25,22 @@
 .workflow-total strong{font-size:22px;color:#294eae}
 .workflow-total small{font-size:10px;color:#8995a7}
 @media(max-width:700px){.workflow-actions{min-width:130px;flex-wrap:wrap}.workflow-modal{width:100%}}
+
+
+/* Itinerary and finance workflows */
+.finance-tabs{display:flex;gap:6px;padding:12px 19px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.finance-tab{border:0;background:transparent;color:#7b8799;padding:9px 12px 11px;font:inherit;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}
+.finance-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.finance-void{padding:6px 10px;font-size:10px}
+.finance-allocation-list{border:1px solid var(--line);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:9px}
+.finance-allocation-list> b{font-size:12px;color:#34435b}
+.finance-allocation-list>small{font-size:10px;line-height:1.5;color:var(--muted)}
+.allocation-row{display:flex!important;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid #f0f2f6}
+.allocation-row>span{min-width:0}
+.allocation-row>span b{display:block;font-size:11px;color:#34435b}
+.allocation-row>span small{display:block;font-size:10px;color:#8995a7;margin-top:4px}
+.allocation-row input{max-width:130px;padding:8px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12px}
+.allocation-total{display:grid;grid-template-columns:1fr auto;gap:7px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.allocation-total b{color:#34435b;text-align:right}
+.allocation-empty{font-size:11px;color:var(--muted);margin:0;padding:10px 0}
+@media(max-width:700px){.finance-tabs{padding-left:12px;padding-right:12px}.finance-tab{padding-left:8px;padding-right:8px}.allocation-row input{max-width:105px}}
