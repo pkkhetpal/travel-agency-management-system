@@ -223,7 +223,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
       {customers.length > 0 && !filtered.length && <div className="workflow-empty"><current.icon size={28}/><b>{query ? "No matching records" : "No " + current.title.toLowerCase() + " yet"}</b><p>{query ? "Try a different search." : "Create your first " + current.singular + " using the button above."}</p><button className="button button-primary" onClick={() => start()}><Plus size={15}/> New {current.singular}</button></div>}
       {!!filtered.length && <div className="table-wrap"><table><thead><tr><th>REFERENCE / DETAILS</th><th>CUSTOMER</th><th>{kind === "quotations" ? "TOTAL" : "TRAVEL DATE"}</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>
         {filtered.map((record) => {
-          const customer = "customer" in record ? record.customer.name : customerMap.get(record.customerId) || "Customer";
+          const customer = record.customer.name;
           const reference = record.referenceNo;
           const status = record.status;
           const title = kind === "enquiries" ? ((record as Enquiry).destination || "Travel enquiry") : (record as Quotation | TravelPackage).title;
