@@ -69,11 +69,11 @@ function money(value: unknown, currency: string) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
-function exportRecordPdf(kind: Kind, record: RecordItem) {
+function exportRecordPdf(kind: Kind, record: RecordItem, agencyName: string) {
   if (kind === "enquiries") {
     const item = record as Enquiry;
     openPrintableDocument({
-      agencyName: "TravelDesk",
+      agencyName,
       title: "Enquiry Summary",
       reference: item.referenceNo,
       subtitle: item.destination || "Travel enquiry",
@@ -96,7 +96,7 @@ function exportRecordPdf(kind: Kind, record: RecordItem) {
   if (kind === "quotations") {
     const item = record as Quotation;
     openPrintableDocument({
-      agencyName: "TravelDesk",
+      agencyName,
       title: "Travel Quotation",
       reference: item.referenceNo,
       subtitle: item.title,
@@ -121,7 +121,7 @@ function exportRecordPdf(kind: Kind, record: RecordItem) {
   }
   const item = record as TravelPackage;
   openPrintableDocument({
-    agencyName: "TravelDesk",
+    agencyName,
     title: "Travel Package Summary",
     reference: item.referenceNo,
     subtitle: item.title,
@@ -163,6 +163,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [agencyName, setAgencyName] = useState("TravelDesk");
 
   const records: RecordItem[] = kind === "enquiries" ? enquiries : kind === "quotations" ? quotations : packages;
 
@@ -190,6 +191,11 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   useEffect(() => {
     load().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load this workspace."));
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.company?.name) setAgencyName(data.company.name); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || open || editing) return;
@@ -333,7 +339,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
             <td>{value}</td>
             <td><span className={`status status-${statusTone(status)}`}>{labels[status] || status}</span></td>
             <td><div className="workflow-actions">
-              <button className="icon-button" title="Download PDF" aria-label={"Download " + current.singular + " PDF"} onClick={() => exportRecordPdf(kind, record)}><FileDown size={15}/></button>
+              <button className="icon-button" title="Download PDF" aria-label={"Download " + current.singular + " PDF"} onClick={() => exportRecordPdf(kind, record, agencyName)}><FileDown size={15}/></button>
               <button className="icon-button" title="Edit" onClick={() => start(record)}><Edit2 size={15}/></button>
               <button className="icon-button danger-icon" title="Delete" onClick={() => remove(record)}><Trash2 size={15}/></button>
               {kind === "enquiries" && <Link className="workflow-link" href={"/quotations?enquiryId=" + record.id}>Create quotation</Link>}
