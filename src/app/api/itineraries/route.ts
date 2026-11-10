@@ -16,7 +16,18 @@ export async function GET() {
     });
     const packages = await prisma.travelPackage.findMany({
       where: { companyId: session.companyId },
-      select: { id: true, title: true, referenceNo: true, travelStart: true, travelEnd: true, customer: { select: { name: true } } },
+      select: {
+        id: true, title: true, referenceNo: true, travelStart: true, travelEnd: true,
+        destination: true, adults: true, children: true,
+        customer: { select: { name: true } },
+        bookings: {
+          select: {
+            id: true, serviceType: true, description: true, serviceDate: true,
+            confirmationNo: true, status: true, supplier: { select: { name: true } },
+          },
+          orderBy: { serviceDate: "asc" },
+        },
+      },
       orderBy: { updatedAt: "desc" },
       take: 250,
     });

@@ -73,3 +73,11 @@
 .settings-panel .status{white-space:nowrap}
 @media(max-width:900px){.report-filter-panel{align-items:flex-start;flex-direction:column}.report-filter-fields{width:100%}}
 @media(max-width:700px){.report-count-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-totals-grid,.report-export-grid{grid-template-columns:1fr}.report-export-card{align-items:flex-start;flex-direction:column}.report-filter-fields label{flex:1;min-width:110px}.report-filter-fields .button{flex:1;justify-content:center}}
+
+
+/* Package-driven itinerary autofill */
+.itinerary-package-summary{display:flex;flex-direction:column;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:#f8fafc}
+.itinerary-package-summary>b,.itinerary-booking-summary>b{font-size:11px;color:#34435b}
+.itinerary-package-summary>p{font-size:11px;color:#56657b;margin:0}
+.itinerary-package-summary>small,.itinerary-booking-summary>small{font-size:10px;line-height:1.5;color:var(--muted)}
+.itinerary-booking-summary{display:flex;flex-direction:column;gap:4px;margin-top:5px;padding-top:9px;border-top:1px solid var(--line)}

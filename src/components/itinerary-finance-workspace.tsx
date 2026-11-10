@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Edit2, FileText, Plus, Receipt, Search, Trash2, Wallet, X } from "lucide-react";
 
-type PackageOption = { id: string; title: string; referenceNo: string; customer: { name: string }; saleAmount?: string | number; currency?: string; travelStart?: string | null; travelEnd?: string | null };
+type BookingOption = { id: string; serviceType: string; description: string; serviceDate: string | null; confirmationNo: string | null; status: string; supplier: { name: string } | null };
+type PackageOption = { id: string; title: string; referenceNo: string; customer: { name: string }; saleAmount?: string | number; currency?: string; travelStart?: string | null; travelEnd?: string | null; destination?: string | null; adults?: number; children?: number; bookings?: BookingOption[] };
 type SupplierOption = { id: string; name: string };
 type ItineraryDay = { id: string; packageId: string; dayNumber: number; date: string | null; title: string; description: string | null; hotel: string | null; meals: string | null; travelPackage: PackageOption };
 type ReceiptItem = { id: string; receiptNo: string; receivedAt: string; amount: string | number; currency: string; method: string; reference: string | null; status: string; notes: string | null; travelPackage: PackageOption };
@@ -14,6 +15,31 @@ const methods = ["CASH", "BANK_TRANSFER", "UPI", "CARD", "PAYMENT_LINK", "OTHER"
 const methodLabel = (v: string) => v.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 const dateText = (v: string | null | undefined) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 const dateValue = (v: string | null | undefined) => v ? new Date(v).toISOString().slice(0, 10) : "";
+const isoDay = (v: string | null | undefined) => v ? v.slice(0, 10) : "";
+function addDaysISO(value: string | null | undefined, days: number) {
+  if (!value) return "";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days - 1);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+function bookingsForDate(pkg: PackageOption | undefined, date: string) {
+  const matches = date ? (pkg?.bookings || []).filter((booking) => isoDay(booking.serviceDate) === date) : [];
+  const summary = (booking: BookingOption) => [
+    booking.serviceType.replaceAll("_", " ") + ": " + booking.description,
+    booking.supplier?.name ? "Supplier: " + booking.supplier.name : "",
+    booking.confirmationNo ? "Confirmation: " + booking.confirmationNo : "",
+    "Status: " + booking.status.replaceAll("_", " ").toLowerCase(),
+  ].filter(Boolean).join(" · ");
+  return {
+    matches,
+    description: matches.map(summary).join("\n"),
+    hotel: matches.filter((booking) => booking.serviceType === "HOTEL").map((booking) =>
+      [booking.description, booking.supplier?.name ? "Supplier: " + booking.supplier.name : "", booking.confirmationNo ? "Confirmation: " + booking.confirmationNo : ""].filter(Boolean).join(" · ")
+    ).join("\n"),
+  };
+}
 const moneyText = (v: unknown, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(v || 0));
 
 export function ItineraryWorkspace() {
@@ -28,6 +54,7 @@ export function ItineraryWorkspace() {
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const touched = useRef({ date: false, title: false, description: false, hotel: false, meals: false });
 
   const load = useCallback(async () => {
     const response = await fetch("/api/itineraries", { cache: "no-store" });
@@ -37,13 +64,50 @@ export function ItineraryWorkspace() {
   }, []);
   useEffect(() => { load().catch((e) => setError(e instanceof Error ? e.message : "Could not load itineraries.")).finally(() => setLoading(false)); }, [load]);
   const filtered = useMemo(() => days.filter((d) => [d.title, d.description || "", d.travelPackage.title, d.travelPackage.customer.name, d.travelPackage.referenceNo].some((v) => v.toLowerCase().includes(query.toLowerCase()))), [days, query]);
+  const selectedPackage = packages.find((pkg) => pkg.id === form.packageId);
+  const selectedDateBookings = bookingsForDate(selectedPackage, form.date).matches;
 
   function start(day?: ItineraryDay) {
     setEditing(day || null); setError(""); setNotice("");
+    touched.current = day
+      ? { date: true, title: true, description: true, hotel: true, meals: true }
+      : { date: false, title: false, description: false, hotel: false, meals: false };
     setForm(day ? { packageId: day.packageId, dayNumber: String(day.dayNumber), date: dateValue(day.date), title: day.title, description: day.description || "", hotel: day.hotel || "", meals: day.meals || "" } : { ...blank });
     setOpen(true);
   }
-  function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setField(k: string, v: string) {
+    if (k in touched.current) touched.current[k as keyof typeof touched.current] = true;
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+  function choosePackage(packageId: string) {
+    const pkg = packages.find((item) => item.id === packageId);
+    const dayNumber = Math.max(1, Number(form.dayNumber) || 1);
+    const date = addDaysISO(pkg?.travelStart, dayNumber);
+    touched.current = { date: false, title: false, description: false, hotel: false, meals: false };
+    const auto = bookingsForDate(pkg, date);
+    setForm((f) => ({ ...f, packageId, date, title: pkg ? "Day " + dayNumber + " – " + (pkg.destination || pkg.title) : "", description: auto.description, hotel: auto.hotel, meals: "" }));
+  }
+  function changeDayNumber(value: string) {
+    const dayNumber = Math.max(1, Number(value) || 1);
+    const date = !touched.current.date && selectedPackage?.travelStart ? addDaysISO(selectedPackage.travelStart, dayNumber) : form.date;
+    const auto = bookingsForDate(selectedPackage, date);
+    setForm((f) => ({
+      ...f, dayNumber: value,
+      ...(!touched.current.date && selectedPackage?.travelStart ? { date } : {}),
+      ...(!touched.current.title && selectedPackage ? { title: "Day " + dayNumber + " – " + (selectedPackage.destination || selectedPackage.title) } : {}),
+      ...(!touched.current.description ? { description: auto.description } : {}),
+      ...(!touched.current.hotel ? { hotel: auto.hotel } : {}),
+    }));
+  }
+  function changeItineraryDate(value: string) {
+    touched.current.date = true;
+    const auto = bookingsForDate(selectedPackage, value);
+    setForm((f) => ({
+      ...f, date: value,
+      ...(!touched.current.description ? { description: auto.description } : {}),
+      ...(!touched.current.hotel ? { hotel: auto.hotel } : {}),
+    }));
+  }
   function close() { setOpen(false); setEditing(null); setError(""); }
 
   async function save(e: React.FormEvent) {
@@ -80,13 +144,19 @@ export function ItineraryWorkspace() {
     {open && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><form className="customer-modal workflow-modal" onSubmit={save}>
       <div className="modal-heading"><div><h2>{editing ? "Edit itinerary day" : "Add itinerary day"}</h2><p>Save a day in a customer travel package.</p></div><button type="button" className="icon-button" onClick={close}><X size={20}/></button></div>{error && <div className="form-error">{error}</div>}
       <div className="customer-form-grid">
-        <label className="wide-field">Travel package *<select required value={form.packageId} onChange={(e) => setField("packageId", e.target.value)}><option value="">Select a package</option>{packages.map((p) => <option key={p.id} value={p.id}>{p.referenceNo} · {p.title} · {p.customer.name}</option>)}</select></label>
-        <label>Day number *<input type="number" min="1" step="1" required value={form.dayNumber} onChange={(e) => setField("dayNumber", e.target.value)}/></label>
-        <label>Date<input type="date" value={form.date} onChange={(e) => setField("date", e.target.value)}/></label>
+        <label className="wide-field">Travel package *<select required value={form.packageId} onChange={(e) => choosePackage(e.target.value)}><option value="">Select a package</option>{packages.map((p) => <option key={p.id} value={p.id}>{p.referenceNo} · {p.title} · {p.customer.name}</option>)}</select></label>
+        {selectedPackage && <div className="wide-field itinerary-package-summary">
+          <b>Package details filled from TravelDesk</b>
+          <p>{selectedPackage.customer.name} · {selectedPackage.destination || "Destination not set"} · {selectedPackage.adults ?? 1} adult(s), {selectedPackage.children ?? 0} child(ren)</p>
+          <small>Travel: {dateText(selectedPackage.travelStart)} to {dateText(selectedPackage.travelEnd)}. Day dates are calculated from the package start date.</small>
+          {selectedDateBookings.length > 0 ? <div className="itinerary-booking-summary"><b>Bookings on {dateText(form.date)}:</b>{selectedDateBookings.map((booking) => <small key={booking.id}>{booking.serviceType.replaceAll("_", " ")} · {booking.description}{booking.supplier?.name ? " · " + booking.supplier.name : ""}{booking.confirmationNo ? " · Ref " + booking.confirmationNo : ""}</small>)}</div> : <small>No bookings have a service date matching this day yet.</small>}
+        </div>}
+        <label>Day number *<input type="number" min="1" step="1" required value={form.dayNumber} onChange={(e) => changeDayNumber(e.target.value)}/></label>
+        <label>Date<input type="date" value={form.date} onChange={(e) => changeItineraryDate(e.target.value)}/></label>
         <label className="wide-field">Day title *<input required value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="e.g. Arrive in Singapore and city tour"/></label>
         <label className="wide-field">Activities / description<textarea rows={3} value={form.description} onChange={(e) => setField("description", e.target.value)}/></label>
         <label>Hotel / accommodation<input value={form.hotel} onChange={(e) => setField("hotel", e.target.value)}/></label>
-        <label>Meals<input value={form.meals} onChange={(e) => setField("meals", e.target.value)} placeholder="e.g. Breakfast, dinner"/></label>
+        <label>Meals<input value={form.meals} onChange={(e) => setField("meals", e.target.value)} placeholder="Meals are entered manually (not stored on bookings yet)"/></label>
       </div>
       <div className="modal-actions"><button type="button" className="button button-secondary" onClick={close}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Save itinerary day"}</button></div>
     </form></div>}
