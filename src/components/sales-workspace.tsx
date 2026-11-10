@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Edit2, Plus, Search, Trash2, X, Users, ClipboardList, FileText, Plane } from "lucide-react";
+import { ArrowRight, Edit2, FileDown, Plus, Search, Trash2, X, Users, ClipboardList, FileText, Plane } from "lucide-react";
+import { openPrintableDocument } from "@/lib/print-document";
 
 type Kind = "enquiries" | "quotations" | "packages";
 type Customer = { id: string; name: string; email: string | null; mobile: string | null };
@@ -68,6 +69,81 @@ function money(value: unknown, currency: string) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
+function exportRecordPdf(kind: Kind, record: RecordItem, agencyName: string) {
+  if (kind === "enquiries") {
+    const item = record as Enquiry;
+    openPrintableDocument({
+      agencyName,
+      title: "Enquiry Summary",
+      reference: item.referenceNo,
+      subtitle: item.destination || "Travel enquiry",
+      customer: item.customer.name,
+      sections: [
+        { title: "Travel request", entries: [
+          { label: "Destination", value: item.destination || "Not specified" },
+          { label: "Travel type", value: item.travelType || "Not specified" },
+          { label: "Travel dates", value: [formatDate(item.travelStart), formatDate(item.travelEnd)].join(" to ") },
+          { label: "Travellers", value: item.adults + " adult(s), " + item.children + " child(ren)" },
+          { label: "Estimated budget", value: item.budget === null ? "Not specified" : money(item.budget, item.currency) },
+          { label: "Enquiry status", value: labels[item.status] || item.status },
+          { label: "Next follow-up", value: formatDate(item.nextFollowUp) },
+        ] },
+        { title: "Customer notes", body: item.notes || "No notes recorded." },
+      ],
+    });
+    return;
+  }
+  if (kind === "quotations") {
+    const item = record as Quotation;
+    openPrintableDocument({
+      agencyName,
+      title: "Travel Quotation",
+      reference: item.referenceNo,
+      subtitle: item.title,
+      customer: item.customer.name,
+      sections: [
+        { title: "Proposal details", entries: [
+          { label: "Quotation", value: item.title },
+          { label: "Linked enquiry", value: item.enquiry?.referenceNo || "Not linked" },
+          { label: "Status", value: labels[item.status] || item.status },
+          { label: "Valid until", value: formatDate(item.validUntil) },
+        ] },
+        { title: "Price summary", entries: [
+          { label: "Subtotal", value: money(item.subtotal, item.currency) },
+          { label: "Discount", value: money(item.discount, item.currency) },
+          { label: "Tax amount", value: money(item.taxAmount, item.currency) },
+          { label: "Quotation total", value: money(item.totalAmount, item.currency) },
+        ] },
+        { title: "Notes and conditions", body: item.notes || "No additional notes recorded." },
+      ],
+    });
+    return;
+  }
+  const item = record as TravelPackage;
+  openPrintableDocument({
+    agencyName,
+    title: "Travel Package Summary",
+    reference: item.referenceNo,
+    subtitle: item.title,
+    customer: item.customer.name,
+    sections: [
+      { title: "Trip details", entries: [
+        { label: "Package", value: item.title },
+        { label: "Destination", value: item.destination || "Not specified" },
+        { label: "Travel dates", value: [formatDate(item.travelStart), formatDate(item.travelEnd)].join(" to ") },
+        { label: "Travellers", value: item.adults + " adult(s), " + item.children + " child(ren)" },
+        { label: "Status", value: labels[item.status] || item.status },
+        { label: "Linked quotation", value: item.quotation?.referenceNo || "Not linked" },
+      ] },
+      { title: "Package value", entries: [
+        { label: "Sale amount", value: money(item.saleAmount, item.currency) },
+        { label: "Currency", value: item.currency },
+      ] },
+      { title: "Notes", body: item.notes || "No additional notes recorded." },
+    ],
+  });
+}
+
 function clearConversionQuery(parameter: "enquiryId" | "quotationId") {
   const url = new URL(window.location.href);
   url.searchParams.delete(parameter);
@@ -87,6 +163,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [agencyName, setAgencyName] = useState("TravelDesk");
 
   const records: RecordItem[] = kind === "enquiries" ? enquiries : kind === "quotations" ? quotations : packages;
 
@@ -114,6 +191,11 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   useEffect(() => {
     load().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load this workspace."));
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.company?.name) setAgencyName(data.company.name); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || open || editing) return;
@@ -257,6 +339,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
             <td>{value}</td>
             <td><span className={`status status-${statusTone(status)}`}>{labels[status] || status}</span></td>
             <td><div className="workflow-actions">
+              <button className="icon-button" title="Download PDF" aria-label={"Download " + current.singular + " PDF"} onClick={() => exportRecordPdf(kind, record, agencyName)}><FileDown size={15}/></button>
               <button className="icon-button" title="Edit" onClick={() => start(record)}><Edit2 size={15}/></button>
               <button className="icon-button danger-icon" title="Delete" onClick={() => remove(record)}><Trash2 size={15}/></button>
               {kind === "enquiries" && <Link className="workflow-link" href={"/quotations?enquiryId=" + record.id}>Create quotation</Link>}
