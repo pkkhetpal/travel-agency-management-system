@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ArrowRight, Edit2, Plus, Search, Trash2, X, Users, ClipboardList, FileText, Plane } from "lucide-react";
 
 type Kind = "enquiries" | "quotations" | "packages";
@@ -71,7 +70,6 @@ function money(value: unknown, currency: string) {
 
 export function SalesWorkspace({ kind }: { kind: Kind }) {
   const current = config[kind];
-  const pathname = usePathname();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -88,15 +86,21 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer.name])), [customers]);
 
   const load = useCallback(async () => {
-    const [customerResponse, recordResponse] = await Promise.all([
+    const dependencyEndpoint = kind === "quotations" ? "/api/enquiries" : kind === "packages" ? "/api/quotations" : null;
+    const responses = await Promise.all([
       fetch("/api/customers", { cache: "no-store" }),
       fetch(current.endpoint, { cache: "no-store" }),
+      ...(dependencyEndpoint ? [fetch(dependencyEndpoint, { cache: "no-store" })] : []),
     ]);
-    const customerData = await customerResponse.json();
-    const recordData = await recordResponse.json();
-    if (!customerResponse.ok) throw new Error(customerData.error || "Could not load customers.");
-    if (!recordResponse.ok) throw new Error(recordData.error || "Could not load records.");
+    const customerData = await responses[0].json();
+    const recordData = await responses[1].json();
+    const dependencyData = responses[2] ? await responses[2].json() : null;
+    if (!responses[0].ok) throw new Error(customerData.error || "Could not load customers.");
+    if (!responses[1].ok) throw new Error(recordData.error || "Could not load records.");
+    if (responses[2] && !responses[2].ok) throw new Error(dependencyData.error || "Could not load linked records.");
     setCustomers(customerData.customers || []);
+    if (kind === "quotations") setEnquiries(dependencyData.enquiries || []);
+    if (kind === "packages") setQuotations(dependencyData.quotations || []);
     if (kind === "enquiries") setEnquiries(recordData.enquiries || []);
     if (kind === "quotations") setQuotations(recordData.quotations || []);
     if (kind === "packages") setPackages(recordData.packages || []);
@@ -196,7 +200,6 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
     setNotice("Record deleted.");
   }
 
-  const amountFields = kind === "quotations";
   const calculatedTotal = Math.max(0, Number(form.subtotal || 0) - Number(form.discount || 0) + Number(form.taxAmount || 0));
   const heading = current.title;
 
