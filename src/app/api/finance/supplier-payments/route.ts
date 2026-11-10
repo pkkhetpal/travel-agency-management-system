@@ -47,12 +47,12 @@ export async function POST(request: Request) {
     const amount = nonNegativeAmount(body.amount, "Payment amount", 0);
     const currency = currencyCode(body.currency);
     const method = String(body.method || "").toUpperCase();
-    const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+    const allocations: Array<{ billId?: unknown; amount?: unknown }> = Array.isArray(body.allocations) ? body.allocations : [];
     if (amount <= 0) return NextResponse.json({ error: "Payment amount must be greater than zero." }, { status: 400 });
     if (!methods.includes(method)) return NextResponse.json({ error: "Choose a valid payment method." }, { status: 400 });
     if (!allocations.length) return NextResponse.json({ error: "Allocate this payment to at least one supplier bill." }, { status: 400 });
 
-    const parsed = allocations.map((row: { billId?: unknown; amount?: unknown }) => ({
+    const parsed: Array<{ billId: string; amount: number }> = allocations.map((row) => ({
       billId: String(row.billId || "").trim(),
       amount: nonNegativeAmount(row.amount, "Allocation amount", 0),
     }));
