@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, CalendarDays, CircleDollarSign, ClipboardList, Plane, Plus, TrendingUp, Users, Building2 } from "lucide-react";
-import { requireSession } from "@/lib/auth";
+import { requirePageSession } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ function formatDate(value: Date | null) {
 }
 
 export default async function Dashboard() {
-  const session = await requireSession();
+  const session = await requirePageSession();
   const now = new Date();
 
   const [customerCount, openEnquiries, activePackages, openSupplierBills, upcomingPackages] = await Promise.all([
