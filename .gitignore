@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
+vendor/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Logs and runtime files
+*.log
+logs/
+tmp/
+temp/
+
+# Local databases and exports
+*.sqlite
+*.sqlite3
+*.db
+exports/
+backups/
+uploads/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
