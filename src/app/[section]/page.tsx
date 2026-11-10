@@ -45,8 +45,8 @@ const data = {
 } as const;
 
 export function generateStaticParams() { return Object.keys(data).map(section => ({section})); }
-export default async function Page({ params }: { params: Promise<{section:string}> }) {
- const {section}=await params;
+export default function Page({ params }: { params: {section:string} }) {
+ const {section}=params;
  const config=data[section as keyof typeof data];
  if(!config) notFound();
  return <SectionPage config={config}/>;
