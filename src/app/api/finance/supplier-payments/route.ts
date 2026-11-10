@@ -13,7 +13,20 @@ export async function GET() {
     const session = await requireSession();
     const payments = await prisma.supplierPayment.findMany({
       where: { companyId: session.companyId },
-      include: { allocations: { include: { bill: { select: { id: true, billNo: true, supplier: { select: { name: true } }, travelPackage: { select: { title: true } } } } } },
+      include: {
+        allocations: {
+          include: {
+            bill: {
+              select: {
+                id: true,
+                billNo: true,
+                supplier: { select: { name: true } },
+                travelPackage: { select: { title: true } },
+              },
+            },
+          },
+        },
+      },
       orderBy: { paidAt: "desc" }, take: 500,
     });
     const bills = await prisma.supplierBill.findMany({
@@ -74,7 +87,20 @@ export async function POST(request: Request) {
           reference: optionalText(body.reference), notes: optionalText(body.notes),
           allocations: { create: parsed.map((row) => ({ billId: row.billId, amount: row.amount })) },
         },
-        include: { allocations: { include: { bill: { select: { id: true, billNo: true, supplier: { select: { name: true } }, travelPackage: { select: { title: true } } } } } },
+        include: {
+        allocations: {
+          include: {
+            bill: {
+              select: {
+                id: true,
+                billNo: true,
+                supplier: { select: { name: true } },
+                travelPackage: { select: { title: true } },
+              },
+            },
+          },
+        },
+      },
       });
       for (const allocation of parsed) {
         const bill = billMap.get(allocation.billId)!;
