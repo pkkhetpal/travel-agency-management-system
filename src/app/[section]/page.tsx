@@ -36,49 +36,19 @@ const definitions = {
 
 export default async function Page({ params }: { params: { section: string } }) {
   const session = await requirePageSession();
-  const section = params.section as keyof typeof definitions;
-  const definition = definitions[section];
-  if (!definition) notFound();
+  const section = params.section;
   if (section === "enquiries" || section === "quotations" || section === "packages") {
     return <SalesWorkspace kind={section} />;
   }
+  const definition = definitions[section as keyof typeof definitions];
+  if (!definition) notFound();
 
   let metrics: { label: string; value: string }[] = [];
   let rows: { title: string; subtitle: string; detail: string; status: string; tone: Tone }[] = [];
   let columns: string[] = ["RECORD", "DETAIL"];
   let note: string | undefined;
 
-  if (section === "enquiries") {
-    const [records, total, followUps, converted] = await Promise.all([
-      prisma.enquiry.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
-      prisma.enquiry.count({ where: { companyId: session.companyId, status: { notIn: ["CONVERTED", "LOST"] } } }),
-      prisma.enquiry.count({ where: { companyId: session.companyId, nextFollowUp: { lte: new Date() }, status: { notIn: ["CONVERTED", "LOST"] } } }),
-      prisma.enquiry.count({ where: { companyId: session.companyId, status: "CONVERTED" } }),
-    ]);
-    metrics = [{ label: "Open enquiries", value: String(total) }, { label: "Follow-ups due", value: String(followUps) }, { label: "Converted enquiries", value: String(converted) }];
-    columns = ["ENQUIRY / CUSTOMER", "TRAVEL DATE"];
-    rows = records.map((record) => ({ title: record.destination ? record.destination + " enquiry" : "Travel enquiry", subtitle: record.referenceNo + " · " + record.customer.name, detail: formatDate(record.travelStart), status: label(record.status), tone: tone(record.status) }));
-  } else if (section === "quotations") {
-    const [records, draft, sent, accepted] = await Promise.all([
-      prisma.quotation.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
-      prisma.quotation.count({ where: { companyId: session.companyId, status: "DRAFT" } }),
-      prisma.quotation.count({ where: { companyId: session.companyId, status: "SENT" } }),
-      prisma.quotation.count({ where: { companyId: session.companyId, status: "ACCEPTED" } }),
-    ]);
-    metrics = [{ label: "Draft quotations", value: String(draft) }, { label: "Awaiting response", value: String(sent) }, { label: "Accepted", value: String(accepted) }];
-    columns = ["QUOTATION / CUSTOMER", "TOTAL VALUE"];
-    rows = records.map((record) => ({ title: record.title, subtitle: record.referenceNo + " · " + record.customer.name, detail: money(record.totalAmount, record.currency), status: label(record.status), tone: tone(record.status) }));
-  } else if (section === "packages") {
-    const [records, active, upcoming, planning] = await Promise.all([
-      prisma.travelPackage.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
-      prisma.travelPackage.count({ where: { companyId: session.companyId, status: { in: ["CONFIRMED", "IN_PROGRESS"] } } }),
-      prisma.travelPackage.count({ where: { companyId: session.companyId, travelStart: { gte: new Date() } } }),
-      prisma.travelPackage.count({ where: { companyId: session.companyId, status: { in: ["DRAFT", "PLANNING"] } } }),
-    ]);
-    metrics = [{ label: "Active packages", value: String(active) }, { label: "Upcoming departures", value: String(upcoming) }, { label: "In planning", value: String(planning) }];
-    columns = ["PACKAGE / CUSTOMER", "DEPARTURE"];
-    rows = records.map((record) => ({ title: record.title, subtitle: record.referenceNo + " · " + record.customer.name, detail: formatDate(record.travelStart), status: label(record.status), tone: tone(record.status) }));
-  } else if (section === "bookings") {
+  if (section === "bookings") {
     const [records, total, requested, confirmed] = await Promise.all([
       prisma.booking.findMany({ where: { travelPackage: { companyId: session.companyId } }, include: { travelPackage: { include: { customer: { select: { name: true } } } }, supplier: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
       prisma.booking.count({ where: { travelPackage: { companyId: session.companyId } } }),
