@@ -1,0 +1,8 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+export default function LoginPage() {
+ const router=useRouter(); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
+ async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError("");try{const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Sign in failed");router.replace("/");router.refresh();}catch(x){setError(x instanceof Error?x.message:"Unable to sign in");}finally{setBusy(false);}}
+ return <main className="auth-page"><form className="auth-card" onSubmit={submit}><div className="auth-brand"><span className="brand-mark">✈</span><b>travel<span className="brand-light">desk</span></b></div><p className="eyebrow">YOUR AGENCY WORKSPACE</p><h1>Welcome back</h1><p className="auth-subtitle">Sign in to manage your travel business.</p>{error&&<div className="form-error">{error}</div>}<label>Email address<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@youragency.com"/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Your password"/></label><button className="button button-primary auth-submit" disabled={busy}>{busy?"Signing in…":"Sign in"}</button><p className="auth-foot">Secure access for your travel agency team.</p></form></main>;
+}
