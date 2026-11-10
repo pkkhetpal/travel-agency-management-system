@@ -4,3 +4,24 @@
 
 /* Authentication and live customer workspace */
 .auth-page{min-height:100vh;display:grid;place-items:center;padding:28px;background:#f5f7fb}.auth-card{width:min(100%,440px);background:#fff;border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 18px 55px #1d35570d;display:flex;flex-direction:column;gap:15px}.auth-brand{display:flex;align-items:center;gap:10px;font-size:23px;margin-bottom:12px}.auth-brand .brand-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eaf1ff;color:var(--blue)}.auth-brand .brand-light{font-weight:400;color:var(--blue)}.auth-card .eyebrow{margin:0;color:var(--blue);font-size:10px;font-weight:750;letter-spacing:1.1px}.auth-card h1{font-size:27px;margin:0;color:#1c2c43}.auth-subtitle{margin:-8px 0 5px;color:var(--muted);font-size:13px;line-height:1.6}.auth-card label,.customer-form-grid label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:650;color:#394960}.auth-card input,.customer-form-grid input,.customer-form-grid textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:13px;color:#24344b;outline:none}.auth-card input:focus,.customer-form-grid input:focus,.customer-form-grid textarea:focus{border-color:#7698ec;box-shadow:0 0 0 3px #eaf0ff}.auth-submit{width:100%;justify-content:center;margin-top:5px}.auth-foot,.auth-hint{font-size:11px;color:var(--muted);text-align:center;margin:0}.auth-hint{text-align:left}.form-error{padding:10px 12px;background:#fff0ef;color:#a33d36;border:1px solid #f5d1ce;border-radius:8px;font-size:12px}.customer-panel{margin-top:22px}.customer-search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:8px 11px;border-radius:8px;color:#8d99aa}.customer-search input{border:0;outline:0;font:inherit;font-size:12px;min-width:210px}.customer-empty{display:flex;flex-direction:column;align-items:center;gap:9px;padding:55px 20px;color:#8b98aa}.customer-empty b{color:#31435b}.customer-empty p{font-size:12px;margin:0 0 8px}.customer-actions{display:flex;gap:4px}.danger-icon{color:#b45b54}.contact-line{display:flex!important;align-items:center;gap:5px}.modal-backdrop{position:fixed;inset:0;z-index:50;background:#15223880;display:grid;place-items:center;padding:18px}.customer-modal{width:min(100%,680px);max-height:92vh;overflow:auto;background:#fff;border-radius:15px;padding:23px;box-shadow:0 20px 70px #15223840}.modal-heading{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}.modal-heading h2{margin:0 0 5px;font-size:20px}.modal-heading p{margin:0;color:var(--muted);font-size:12px}.customer-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.customer-form-grid .wide-field{grid-column:1/-1}.customer-form-grid textarea{resize:vertical}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.button-secondary{background:#fff;border:1px solid var(--line);color:#46556a}.customer-panel .panel-heading{flex-wrap:wrap}.customer-panel .table-wrap{padding:0 10px 10px}@media(max-width:700px){.auth-card{padding:25px 20px}.customer-form-grid{grid-template-columns:1fr}.customer-form-grid .wide-field{grid-column:auto}.customer-search{width:100%}.customer-search input{min-width:0;width:100%}.customer-modal{padding:17px}}
+
+
+/* Connected sales workflow */
+.workflow-stats{margin-top:4px}
+.workflow-list{margin-top:20px}
+.workflow-notice{margin:0 0 14px;padding:11px 14px;background:#e9f7f0;border:1px solid #d4efdf;border-radius:8px;color:#21815e;font-size:12px}
+.workflow-error{margin:0 0 14px}
+.workflow-empty{display:flex;flex-direction:column;align-items:center;gap:9px;padding:48px 20px;text-align:center;color:#8b98aa}
+.workflow-empty b{color:#31435b;font-size:13px}
+.workflow-empty p{font-size:12px;color:#7e8ba0;margin:0 0 7px;max-width:390px}
+.workflow-actions{display:flex;align-items:center;gap:5px;min-width:150px}
+.workflow-link{font-size:10px;color:var(--blue);font-weight:650;text-decoration:none;white-space:nowrap;margin-left:4px}
+.workflow-link:hover{text-decoration:underline}
+.workflow-modal{width:min(100%,760px)}
+.workflow-modal .customer-form-grid select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#24344b;font:inherit;font-size:13px;outline:none}
+.workflow-modal .customer-form-grid select:focus{border-color:#7698ec;box-shadow:0 0 0 3px #eaf0ff}
+.workflow-total{grid-column:1/-1;border:1px solid #dfe7fb;background:#f7f9ff;border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:4px}
+.workflow-total span{font-size:11px;color:#687994}
+.workflow-total strong{font-size:22px;color:#294eae}
+.workflow-total small{font-size:10px;color:#8995a7}
+@media(max-width:700px){.workflow-actions{min-width:130px;flex-wrap:wrap}.workflow-modal{width:100%}}
