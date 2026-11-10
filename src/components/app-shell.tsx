@@ -29,6 +29,7 @@ const groups = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  if (pathname === "/login" || pathname === "/setup") return <>{children}</>;
   const [open, setOpen] = useState(false);
   return <div className="app-layout">
     <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
