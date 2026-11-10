@@ -96,7 +96,7 @@ export function ItineraryWorkspace() {
 type FinanceTab = "receipts" | "bills" | "payments";
 const receiptBlank: FormState = { packageId: "", amount: "", currency: "INR", method: "BANK_TRANSFER", receivedAt: new Date().toISOString().slice(0, 10), reference: "", notes: "" };
 const billBlank: FormState = { packageId: "", supplierId: "", supplierInvoiceNo: "", billDate: new Date().toISOString().slice(0, 10), dueDate: "", amount: "", taxAmount: "0", currency: "INR", notes: "" };
-const paymentBlank: FormState = { amount: "", currency: "INR", method: "BANK_TRANSFER", paidAt: new Date().toISOString().slice(0, 10), reference: "", notes: "" };
+const paymentBlank: FormState = { supplierId: "", amount: "", currency: "INR", method: "BANK_TRANSFER", paidAt: new Date().toISOString().slice(0, 10), reference: "", notes: "" };
 
 export function FinanceWorkspace() {
   const [tab, setTab] = useState<FinanceTab>("receipts");
@@ -222,17 +222,17 @@ export function FinanceWorkspace() {
           <label className="wide-field">Notes<textarea rows={2} value={form.notes} onChange={(e)=>setField("notes",e.target.value)}/></label>
         </>}
         {tab === "payments" && <>
-          <label>Payment date<input type="date" value={form.paidAt} onChange={(e)=>setField("paidAt",e.target.value)}/></label>
+          <label>Supplier receiving payment *<select required value={form.supplierId} onChange={(e)=>setField("supplierId",e.target.value)}><option value="">Select supplier</option>{suppliers.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>\n          <label>Payment date<input type="date" value={form.paidAt} onChange={(e)=>setField("paidAt",e.target.value)}/></label>
           <label>Currency<input maxLength={3} value={form.currency} onChange={(e)=>{ setField("currency",e.target.value.toUpperCase()); setAllocations({}); }}/></label>
           <label>Payment amount *<input type="number" min="0.01" step="0.01" required value={form.amount} onChange={(e)=>setField("amount",e.target.value)}/></label>
           <label>Payment method<select value={form.method} onChange={(e)=>setField("method",e.target.value)}>{methods.map((m)=><option key={m} value={m}>{methodLabel(m)}</option>)}</select></label>
           <label className="wide-field">Reference<input value={form.reference} onChange={(e)=>setField("reference",e.target.value)}/></label>
           <div className="wide-field finance-allocation-list"><b>Allocate to supplier bills</b><small>Only unpaid balances in the selected currency are shown. Remaining balance on a bill is calculated from earlier payments.</small>
-            {openBills.filter((b)=>b.currency===form.currency).map((b)=>{
+            {openBills.filter((b)=>b.currency===form.currency && b.supplier.id===form.supplierId).map((b)=>{
               const paid=b.payments.reduce((s,p)=>s+Number(p.amount),0); const remaining=Math.max(0,Number(b.amount)-paid);
               return <label key={b.id} className="allocation-row"><span><b>{b.supplier.name} · {b.billNo}</b><small>{b.travelPackage.title} · Remaining {moneyText(remaining,b.currency)}</small></span><input type="number" min="0" max={remaining} step="0.01" placeholder="0.00" value={allocations[b.id]||""} onChange={(e)=>setAllocations((a)=>({...a,[b.id]:e.target.value}))}/></label>;
             })}
-            {!openBills.some((b)=>b.currency===form.currency) && <p className="allocation-empty">No outstanding bills in {form.currency}. Change currency or record a supplier bill first.</p>}
+            {!openBills.some((b)=>b.currency===form.currency && b.supplier.id===form.supplierId) && <p className="allocation-empty">No outstanding bills in {form.currency}. Change currency or record a supplier bill first.</p>}
             <div className="allocation-total"><span>Allocated total</span><b>{moneyText(allocatedAmount,form.currency)}</b><span>Payment entered</span><b>{moneyText(form.amount,form.currency)}</b></div>
             {allocatedAmount > Number(form.amount||0) && <p className="form-error">Allocated total cannot exceed the payment amount.</p>}
           </div>
