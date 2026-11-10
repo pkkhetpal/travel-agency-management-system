@@ -46,7 +46,7 @@ export function ReportsWorkspace() {
       const params = new URLSearchParams();
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      const response = await fetch("/api/reports" + (params.size ? "?" + params.toString() : ""), { cache: "no-store" });
+      const response = await fetch("/api/reports" + (params.toString() ? "?" + params.toString() : ""), { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load reports.");
       setData(result);
