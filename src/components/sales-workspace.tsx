@@ -68,6 +68,12 @@ function money(value: unknown, currency: string) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
+function clearConversionQuery(parameter: "enquiryId" | "quotationId") {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(parameter);
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+}
+
 export function SalesWorkspace({ kind }: { kind: Kind }) {
   const current = config[kind];
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -117,6 +123,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
     if (kind === "quotations") {
       const enquiry = enquiries.find((item) => item.id === requestedId);
       if (!enquiry) return;
+      clearConversionQuery("enquiryId");
       setEditing(null);
       setForm({ ...initialForms.quotations, customerId: enquiry.customerId, enquiryId: enquiry.id, title: enquiry.destination ? enquiry.destination + " travel proposal" : "Travel proposal", currency: enquiry.currency });
       setOpen(true);
@@ -124,6 +131,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
     if (kind === "packages") {
       const quotation = quotations.find((item) => item.id === requestedId);
       if (!quotation) return;
+      clearConversionQuery("quotationId");
       setEditing(null);
       setForm({ ...initialForms.packages, customerId: quotation.customerId, quotationId: quotation.id, title: quotation.title, currency: quotation.currency, saleAmount: String(quotation.totalAmount) });
       setOpen(true);
@@ -160,11 +168,19 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
     setForm((previous) => ({ ...previous, [key]: value }));
   }
 
+  function closeForm() {
+    setOpen(false);
+    setEditing(null);
+    setError("");
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     setNotice("");
+    const wasEditing = Boolean(editing);
     try {
       const url = editing ? current.endpoint + "/" + editing.id : current.endpoint;
       const response = await fetch(url, {
@@ -174,10 +190,16 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save record.");
-      await load();
-      setOpen(false);
-      setEditing(null);
-      setNotice(editing ? "Changes saved." : current.singular[0].toUpperCase() + current.singular.slice(1) + " saved successfully.");
+
+      // Close as soon as the server confirms the save. A later refresh failure
+      // must not leave the editor open and tempt the user to submit twice.
+      closeForm();
+      setNotice(wasEditing ? "Changes saved successfully." : current.singular[0].toUpperCase() + current.singular.slice(1) + " saved successfully.");
+      try {
+        await load();
+      } catch {
+        setNotice("Saved successfully. Refresh the page to update the register.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save record.");
     } finally {
@@ -246,9 +268,9 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
       <div className="list-footer">Live database records <span>{filtered.length} shown</span></div>
     </section>
 
-    {open && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+    {open && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}>
       <form className="customer-modal workflow-modal" onSubmit={save}>
-        <div className="modal-heading"><div><h2>{editing ? "Edit " + current.singular : "New " + current.singular}</h2><p>Changes are saved to your agency database.</p></div><button type="button" className="icon-button" onClick={() => setOpen(false)}><X size={20}/></button></div>
+        <div className="modal-heading"><div><h2>{editing ? "Edit " + current.singular : "New " + current.singular}</h2><p>Changes are saved to your agency database.</p></div><button type="button" className="icon-button" onClick={closeForm}><X size={20}/></button></div>
         {error && <div className="form-error">{error}</div>}
         <div className="customer-form-grid">
           <label>Customer *
@@ -295,7 +317,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
           </>}
           <label className="wide-field">Notes<textarea rows={3} value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Additional details for your team"/></label>
         </div>
-        <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Save " + current.singular}</button></div>
+        <div className="modal-actions"><button type="button" className="button button-secondary" onClick={closeForm}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Save " + current.singular}</button></div>
       </form>
     </div>}
   </>;
