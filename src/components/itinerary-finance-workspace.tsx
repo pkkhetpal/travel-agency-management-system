@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Edit2, FileText, Plus, Receipt, Search, Trash2, Wallet, X } from "lucide-react";
+import { CalendarDays, Edit2, FileDown, FileText, Plus, Receipt, Search, Trash2, Wallet, X } from "lucide-react";
+import { openPrintableDocument } from "@/lib/print-document";
 
 type BookingOption = { id: string; serviceType: string; description: string; serviceDate: string | null; confirmationNo: string | null; status: string; supplier: { name: string } | null };
 type PlaceSuggestion = { id: string; name: string; address: string; phone: string; website: string; category: string; latitude: number; longitude: number; mapUrl: string; source: string; kind: string };
@@ -140,6 +141,7 @@ export function ItineraryWorkspace() {
   const [photoLoading, setPhotoLoading] = useState(false);
   const [assistantNotice, setAssistantNotice] = useState("");
   const [assistantError, setAssistantError] = useState("");
+  const [agencyName, setAgencyName] = useState("TravelDesk");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/itineraries", { cache: "no-store" });
@@ -148,6 +150,10 @@ export function ItineraryWorkspace() {
     setDays(data.days || []); setPackages(data.packages || []);
   }, []);
   useEffect(() => { load().catch((e) => setError(e instanceof Error ? e.message : "Could not load itineraries.")).finally(() => setLoading(false)); }, [load]);
+  useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.company?.name) setAgencyName(data.company.name); }).catch(() => {});
+  }, []);
   const filtered = useMemo(() => days.filter((d) => [d.title, d.description || "", d.travelPackage.title, d.travelPackage.customer.name, d.travelPackage.referenceNo].some((v) => v.toLowerCase().includes(query.toLowerCase()))), [days, query]);
   const selectedPackage = packages.find((pkg) => pkg.id === form.packageId);
   const selectedDateBookings = bookingsForDate(selectedPackage, form.date).matches;
@@ -321,6 +327,42 @@ export function ItineraryWorkspace() {
       setNotice("Itinerary day deleted."); setError(""); await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Could not delete itinerary day."); }
   }
+
+  function exportPackageItinerary(packageId: string) {
+    const pkg = packages.find((item) => item.id === packageId);
+    if (!pkg) return;
+    const packageDays = days.filter((day) => day.packageId === packageId).sort((a, b) => a.dayNumber - b.dayNumber);
+    const sections = [
+      { title: "Trip overview", entries: [
+        { label: "Package", value: pkg.title },
+        { label: "Destination", value: pkg.destination || "Not specified" },
+        { label: "Travel dates", value: dateText(pkg.travelStart) + " to " + dateText(pkg.travelEnd) },
+        { label: "Travellers", value: (pkg.adults ?? 1) + " adult(s), " + (pkg.children ?? 0) + " child(ren)" },
+        { label: "Package reference", value: pkg.referenceNo },
+      ] },
+      ...packageDays.map((day) => {
+        const saved = splitSavedPhotos(day.description);
+        return {
+          title: "Day " + day.dayNumber + " · " + day.title,
+          entries: [
+            { label: "Date", value: dateText(day.date) },
+            { label: "Hotel / accommodation", value: day.hotel || "Not specified" },
+            { label: "Meals", value: day.meals || "Not specified" },
+          ],
+          body: saved.text || "No activity description recorded.",
+          images: saved.photos.map((photo) => ({ url: photo.url, caption: photo.title + (photo.artist ? " · " + photo.artist : "") + " · " + photo.license, sourceUrl: photo.sourceUrl })),
+        };
+      }),
+    ];
+    openPrintableDocument({
+      agencyName,
+      title: "Travel Itinerary",
+      reference: pkg.referenceNo,
+      subtitle: pkg.title + (pkg.destination ? " · " + pkg.destination : ""),
+      customer: pkg.customer.name,
+      sections,
+    });
+  }
   return <>
     <div className="page-heading"><div><div className="eyebrow">TRAVEL OPERATIONS</div><h1>Itineraries</h1><p>Build day-wise plans with dates, activities, accommodation and meal details.</p></div><button className="button button-primary" onClick={() => start()} disabled={!packages.length} title={!packages.length ? "Create a travel package first." : undefined}><Plus size={17}/> Add itinerary day</button></div>
     <section className="stats-grid workflow-stats">
@@ -331,7 +373,7 @@ export function ItineraryWorkspace() {
     {notice && <div className="workflow-notice">{notice}</div>}{error && !open && <div className="form-error workflow-error">{error}</div>}
     <section className="panel section-list workflow-list"><div className="list-toolbar"><div><h2>Day-wise itinerary</h2><p>Each package can have one entry for each day number.</p></div><label className="list-search"><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search package, customer or activity"/></label></div>
       {loading ? <div className="workflow-empty">Loading itinerary…</div> : !packages.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>Create a travel package first</b><p>Itinerary days are attached to a package and its customer.</p></div> : !filtered.length ? <div className="workflow-empty"><CalendarDays size={28}/><b>{query ? "No matching itinerary days" : "No itinerary days yet"}</b><p>{query ? "Try another search." : "Start creating a day-wise plan for a customer package."}</p><button className="button button-primary" onClick={() => start()}><Plus size={15}/> Add first day</button></div> :
-      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{splitSavedPhotos(d.description).text || "No activity description"}</small>{splitSavedPhotos(d.description).photos.length > 0 && <div className="itinerary-saved-gallery">{splitSavedPhotos(d.description).photos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.title} title={photo.title}/>)}</div>}</td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel?.split("\n")[0], d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
+      <div className="table-wrap"><table><thead><tr><th>DAY / PLAN</th><th>PACKAGE / CUSTOMER</th><th>DATE</th><th>HOTEL / MEALS</th><th>ACTIONS</th></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>Day {d.dayNumber} · {d.title}</b><small>{splitSavedPhotos(d.description).text || "No activity description"}</small>{splitSavedPhotos(d.description).photos.length > 0 && <div className="itinerary-saved-gallery">{splitSavedPhotos(d.description).photos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.title} title={photo.title}/>)}</div>}</td><td><b>{d.travelPackage.title}</b><small>{d.travelPackage.referenceNo} · {d.travelPackage.customer.name}</small></td><td>{dateText(d.date)}</td><td>{[d.hotel?.split("\n")[0], d.meals].filter(Boolean).join(" · ") || "—"}</td><td><div className="workflow-actions"><button className="icon-button" title="Download full itinerary PDF" aria-label="Download full itinerary PDF" onClick={() => exportPackageItinerary(d.packageId)}><FileDown size={15}/></button><button className="icon-button" title="Edit itinerary day" onClick={() => start(d)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete itinerary day" onClick={() => remove(d)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>}
       <div className="list-footer">Live database records <span>{filtered.length} shown</span></div>
     </section>
     {open && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><form className="customer-modal workflow-modal" onSubmit={save}>
