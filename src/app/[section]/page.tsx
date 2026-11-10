@@ -1,53 +1,152 @@
 import { notFound } from "next/navigation";
 import { SectionPage } from "@/components/section-page";
+import { requireSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-const data = {
-  enquiries: {title:"Enquiries",description:"Capture customer requests and keep every follow-up on track.",action:"New enquiry",metrics:[{label:"Open enquiries",value:"18"},{label:"Follow-ups due",value:"08"},{label:"Converted this month",value:"12"}],columns:["ENQUIRY / CUSTOMER","TRAVEL DATE","STATUS"],rows:[
-    {title:"Bali holiday enquiry",subtitle:"ENQ-0261 · Aarav Mehta",detail:"14 Nov 2026",status:"New",tone:"blue" as const},
-    {title:"Family trip to Kerala",subtitle:"ENQ-0260 · Kunal Verma",detail:"22 Nov 2026",status:"Follow-up due",tone:"amber" as const},
-    {title:"Dubai honeymoon",subtitle:"ENQ-0258 · Riya Shah",detail:"18 Nov 2026",status:"Quoted",tone:"green" as const}]},
-  quotations: {title:"Quotations",description:"Prepare travel proposals, share prices and track customer decisions.",action:"Create quotation",metrics:[{label:"Draft quotations",value:"06"},{label:"Awaiting response",value:"09"},{label:"Accepted this month",value:"14"}],columns:["QUOTATION / CUSTOMER","VALID UNTIL","STATUS"],rows:[
-    {title:"Bali Family Escape",subtitle:"QT-2026-0081 · Aarav Mehta",detail:"12 Nov 2026",status:"Sent",tone:"blue" as const},
-    {title:"Dubai Honeymoon",subtitle:"QT-2026-0080 · Riya Shah",detail:"15 Nov 2026",status:"Accepted",tone:"green" as const},
-    {title:"Kerala Backwaters",subtitle:"QT-2026-0079 · Kunal Verma",detail:"09 Nov 2026",status:"Draft",tone:"gray" as const}]},
-  packages: {title:"Packages",description:"Organise trips, bookings, suppliers, guests and package finances.",action:"New package",metrics:[{label:"Active packages",value:"24"},{label:"Upcoming departures",value:"08"},{label:"In planning",value:"05"}],columns:["PACKAGE / CUSTOMER","DEPARTURE","STATUS"],rows:[
-    {title:"Bali Family Escape",subtitle:"PKG-2026-0042 · Aarav Mehta",detail:"14 Nov 2026",status:"Confirmed",tone:"green" as const},
-    {title:"Dubai Honeymoon",subtitle:"PKG-2026-0041 · Riya Shah",detail:"18 Nov 2026",status:"In progress",tone:"blue" as const},
-    {title:"Kerala Backwaters",subtitle:"PKG-2026-0039 · Kunal Verma",detail:"22 Nov 2026",status:"Pending",tone:"amber" as const}]},
-  customers: {title:"Customers & Guests",description:"Keep customer profiles, traveller details and documents together.",action:"Add customer",metrics:[{label:"Total customers",value:"286"},{label:"Added this month",value:"24"},{label:"Repeat customers",value:"38"}],columns:["CUSTOMER","CONTACT","TYPE"],rows:[
-    {title:"Aarav Mehta",subtitle:"CUS-0182",detail:"+91 98XXX 12045",status:"Active",tone:"green" as const},
-    {title:"Riya Shah",subtitle:"CUS-0181",detail:"riya@example.com",status:"Active",tone:"green" as const},
-    {title:"Kunal Verma",subtitle:"CUS-0179",detail:"+91 98XXX 45021",status:"New",tone:"blue" as const}]},
-  bookings: {title:"Bookings",description:"Track flight, hotel, transfer, activity, visa and cruise reservations.",action:"Add booking",metrics:[{label:"Total bookings",value:"67"},{label:"Awaiting confirmation",value:"07"},{label:"Confirmed",value:"52"}],columns:["BOOKING / PACKAGE","SERVICE DATE","STATUS"],rows:[
-    {title:"Hotel · Ubud Resort",subtitle:"BKG-0128 · Bali Family Escape",detail:"14 Nov 2026",status:"Confirmed",tone:"green" as const},
-    {title:"Flight · BOM to DXB",subtitle:"BKG-0127 · Dubai Honeymoon",detail:"18 Nov 2026",status:"Pending",tone:"amber" as const},
-    {title:"Houseboat · Alleppey",subtitle:"BKG-0125 · Kerala Backwaters",detail:"23 Nov 2026",status:"Confirmed",tone:"green" as const}]},
-  suppliers: {title:"Suppliers",description:"Manage hotels, transport partners, DMCs, airlines and service providers.",action:"Add supplier",metrics:[{label:"Active suppliers",value:"42"},{label:"Bills to review",value:"05"},{label:"Supplier balances",value:"₹2.16L"}],columns:["SUPPLIER","CONTACT","STATUS"],rows:[
-    {title:"Island Holidays DMC",subtitle:"SUP-0031 · Destination partner",detail:"ops@example.com",status:"Active",tone:"green" as const},
-    {title:"Ubud Garden Resort",subtitle:"SUP-0028 · Hotel",detail:"+62 361 XXX",status:"Active",tone:"green" as const},
-    {title:"Skyline Transfers",subtitle:"SUP-0024 · Transport",detail:"accounts@example.com",status:"Review",tone:"amber" as const}]},
-  itineraries: {title:"Itineraries",description:"Build day-wise travel plans and share trip details with customers.",action:"Create itinerary",metrics:[{label:"Upcoming trips",value:"08"},{label:"Draft itineraries",value:"04"},{label:"Shared with guests",value:"19"}],columns:["ITINERARY / PACKAGE","START DATE","STATUS"],rows:[
-    {title:"Bali · Island discovery",subtitle:"ITN-0042 · Bali Family Escape",detail:"14 Nov 2026",status:"Ready",tone:"green" as const},
-    {title:"Dubai · Romance escape",subtitle:"ITN-0041 · Dubai Honeymoon",detail:"18 Nov 2026",status:"Draft",tone:"amber" as const},
-    {title:"Kerala · Backwater trail",subtitle:"ITN-0039 · Kerala Backwaters",detail:"22 Nov 2026",status:"Shared",tone:"blue" as const}]},
-  finance: {title:"Receivables & Payables",description:"Track customer collections and supplier bills without a full accounting system.",action:"Record transaction",metrics:[{label:"Customer receivables",value:"₹4,82,500"},{label:"Supplier payables",value:"₹2,16,800"},{label:"Overdue items",value:"03"}],columns:["PARTY / PACKAGE","DUE DATE","STATUS"],rows:[
-    {title:"Aarav Mehta · Balance due",subtitle:"REC-0081 · Bali Family Escape",detail:"12 Nov 2026",status:"Due soon",tone:"amber" as const},
-    {title:"Island Holidays DMC · Bill",subtitle:"BILL-0038 · Bali Family Escape",detail:"15 Nov 2026",status:"Pending",tone:"blue" as const},
-    {title:"Riya Shah · Advance received",subtitle:"REC-0080 · Dubai Honeymoon",detail:"05 Nov 2026",status:"Allocated",tone:"green" as const}]},
-  reports: {title:"Reports",description:"Understand sales activity, package performance and outstanding balances.",action:"Export report",metrics:[{label:"Sales this month",value:"₹12.8L"},{label:"Estimated gross margin",value:"18.4%"},{label:"Packages sold",value:"14"}],columns:["REPORT","PERIOD","AVAILABILITY"],rows:[
-    {title:"Package profitability",subtitle:"Revenue less allocated supplier costs",detail:"This month",status:"Available",tone:"green" as const},
-    {title:"Customer outstanding",subtitle:"Receivables by customer and package",detail:"As of today",status:"Available",tone:"green" as const},
-    {title:"Supplier outstanding",subtitle:"Payables by supplier and due date",detail:"As of today",status:"Available",tone:"green" as const}]},
-  settings: {title:"Settings",description:"Configure your agency profile, GST, currency, users and notification preferences.",action:"Save settings",metrics:[{label:"Default currency",value:"INR"},{label:"Time zone",value:"Asia/Kolkata"},{label:"GST configuration",value:"To configure"}],columns:["CONFIGURATION","DETAIL","STATUS"],rows:[
-    {title:"Company profile",subtitle:"Agency name, address and contact details",detail:"Business setup",status:"To configure",tone:"amber" as const},
-    {title:"GST & invoices",subtitle:"GSTIN, tax rates and invoice numbering",detail:"Finance setup",status:"To configure",tone:"amber" as const},
-    {title:"Notifications",subtitle:"WhatsApp, email and SMS providers",detail:"Integrations",status:"Not connected",tone:"gray" as const}]}
+export const dynamic = "force-dynamic";
+
+type Tone = "green" | "blue" | "amber" | "gray";
+function tone(status: string): Tone {
+  if (["CONFIRMED","COMPLETED","ACCEPTED","PAID","CONVERTED","ACTIVE","READY","SENT"].includes(status)) return "green";
+  if (["NEW","REQUESTED","DRAFT","PLANNING","IN_PROGRESS"].includes(status)) return "blue";
+  if (["OPEN","PARTIALLY_PAID","FOLLOW_UP","ON_HOLD","PENDING","REJECTED"].includes(status)) return "amber";
+  return "gray";
+}
+function label(status: string) { return status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase()); }
+function formatDate(value: Date | null | undefined) {
+  if (!value) return "Not set";
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(value);
+}
+function money(value: unknown, currency = "INR") {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+const definitions = {
+  enquiries: { title: "Enquiries", description: "Capture customer requests and keep every follow-up on track.", action: "New enquiry" },
+  quotations: { title: "Quotations", description: "Prepare travel proposals and track customer decisions.", action: "Create quotation" },
+  packages: { title: "Packages", description: "Organise trips, bookings, suppliers, guests and package details.", action: "New package" },
+  bookings: { title: "Bookings", description: "Track flight, hotel, transfer, activity, visa and cruise reservations.", action: "Add booking" },
+  suppliers: { title: "Suppliers", description: "Manage hotels, transport partners, DMCs and service providers.", action: "Add supplier" },
+  itineraries: { title: "Itineraries", description: "Build and review day-wise travel plans.", action: "Create itinerary" },
+  finance: { title: "Receivables & Payables", description: "Review customer receipts and supplier bills recorded for your agency.", action: "Record transaction" },
+  reports: { title: "Reports", description: "Review business totals calculated from your agency records.", action: "Export report" },
+  settings: { title: "Agency settings", description: "Review the company profile and regional settings used by your agency.", action: "Edit settings" },
 } as const;
 
-export function generateStaticParams() { return Object.keys(data).map(section => ({section})); }
-export default function Page({ params }: { params: {section:string} }) {
- const {section}=params;
- const config=data[section as keyof typeof data];
- if(!config) notFound();
- return <SectionPage config={config}/>;
+export default async function Page({ params }: { params: { section: string } }) {
+  const session = await requireSession();
+  const section = params.section as keyof typeof definitions;
+  const definition = definitions[section];
+  if (!definition) notFound();
+
+  let metrics: { label: string; value: string }[] = [];
+  let rows: { title: string; subtitle: string; detail: string; status: string; tone: Tone }[] = [];
+  let columns: string[] = ["RECORD", "DETAIL"];
+  let note: string | undefined;
+
+  if (section === "enquiries") {
+    const [records, total, followUps, converted] = await Promise.all([
+      prisma.enquiry.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
+      prisma.enquiry.count({ where: { companyId: session.companyId, status: { notIn: ["CONVERTED", "LOST"] } } }),
+      prisma.enquiry.count({ where: { companyId: session.companyId, nextFollowUp: { lte: new Date() }, status: { notIn: ["CONVERTED", "LOST"] } } }),
+      prisma.enquiry.count({ where: { companyId: session.companyId, status: "CONVERTED" } }),
+    ]);
+    metrics = [{ label: "Open enquiries", value: String(total) }, { label: "Follow-ups due", value: String(followUps) }, { label: "Converted enquiries", value: String(converted) }];
+    columns = ["ENQUIRY / CUSTOMER", "TRAVEL DATE"];
+    rows = records.map((record) => ({ title: record.destination ? record.destination + " enquiry" : "Travel enquiry", subtitle: record.referenceNo + " · " + record.customer.name, detail: formatDate(record.travelStart), status: label(record.status), tone: tone(record.status) }));
+  } else if (section === "quotations") {
+    const [records, draft, sent, accepted] = await Promise.all([
+      prisma.quotation.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
+      prisma.quotation.count({ where: { companyId: session.companyId, status: "DRAFT" } }),
+      prisma.quotation.count({ where: { companyId: session.companyId, status: "SENT" } }),
+      prisma.quotation.count({ where: { companyId: session.companyId, status: "ACCEPTED" } }),
+    ]);
+    metrics = [{ label: "Draft quotations", value: String(draft) }, { label: "Awaiting response", value: String(sent) }, { label: "Accepted", value: String(accepted) }];
+    columns = ["QUOTATION / CUSTOMER", "TOTAL VALUE"];
+    rows = records.map((record) => ({ title: record.title, subtitle: record.referenceNo + " · " + record.customer.name, detail: money(record.totalAmount, record.currency), status: label(record.status), tone: tone(record.status) }));
+  } else if (section === "packages") {
+    const [records, active, upcoming, planning] = await Promise.all([
+      prisma.travelPackage.findMany({ where: { companyId: session.companyId }, include: { customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
+      prisma.travelPackage.count({ where: { companyId: session.companyId, status: { in: ["CONFIRMED", "IN_PROGRESS"] } } }),
+      prisma.travelPackage.count({ where: { companyId: session.companyId, travelStart: { gte: new Date() } } }),
+      prisma.travelPackage.count({ where: { companyId: session.companyId, status: { in: ["DRAFT", "PLANNING"] } } }),
+    ]);
+    metrics = [{ label: "Active packages", value: String(active) }, { label: "Upcoming departures", value: String(upcoming) }, { label: "In planning", value: String(planning) }];
+    columns = ["PACKAGE / CUSTOMER", "DEPARTURE"];
+    rows = records.map((record) => ({ title: record.title, subtitle: record.referenceNo + " · " + record.customer.name, detail: formatDate(record.travelStart), status: label(record.status), tone: tone(record.status) }));
+  } else if (section === "bookings") {
+    const [records, total, requested, confirmed] = await Promise.all([
+      prisma.booking.findMany({ where: { travelPackage: { companyId: session.companyId } }, include: { travelPackage: { include: { customer: { select: { name: true } } } }, supplier: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 }),
+      prisma.booking.count({ where: { travelPackage: { companyId: session.companyId } } }),
+      prisma.booking.count({ where: { travelPackage: { companyId: session.companyId }, status: { in: ["REQUESTED", "ON_HOLD"] } } }),
+      prisma.booking.count({ where: { travelPackage: { companyId: session.companyId }, status: "CONFIRMED" } }),
+    ]);
+    metrics = [{ label: "Total bookings", value: String(total) }, { label: "Awaiting confirmation", value: String(requested) }, { label: "Confirmed", value: String(confirmed) }];
+    columns = ["BOOKING / PACKAGE", "SERVICE DATE"];
+    rows = records.map((record) => ({ title: label(record.serviceType) + " · " + record.description, subtitle: record.referenceNo + " · " + record.travelPackage.title + " · " + record.travelPackage.customer.name, detail: formatDate(record.serviceDate), status: label(record.status), tone: tone(record.status) }));
+  } else if (section === "suppliers") {
+    const [records, active, openBills, totalBookings] = await Promise.all([
+      prisma.supplier.findMany({ where: { companyId: session.companyId }, include: { _count: { select: { bookings: true, bills: true } } }, orderBy: { name: "asc" }, take: 100 }),
+      prisma.supplier.count({ where: { companyId: session.companyId, isActive: true } }),
+      prisma.supplierBill.count({ where: { companyId: session.companyId, status: { in: ["OPEN", "PARTIALLY_PAID"] } } }),
+      prisma.booking.count({ where: { travelPackage: { companyId: session.companyId } } }),
+    ]);
+    metrics = [{ label: "Active suppliers", value: String(active) }, { label: "Open supplier bills", value: String(openBills) }, { label: "Bookings recorded", value: String(totalBookings) }];
+    columns = ["SUPPLIER", "CONTACT / RECORDS"];
+    rows = records.map((record) => ({ title: record.name, subtitle: [record.category, record.contactName].filter(Boolean).join(" · ") || "Supplier", detail: record.email || record.phone || (record._count.bookings + " bookings · " + record._count.bills + " bills"), status: record.isActive ? "Active" : "Inactive", tone: record.isActive ? "green" : "gray" }));
+  } else if (section === "itineraries") {
+    const [records, totalDays, packages] = await Promise.all([
+      prisma.itineraryDay.findMany({ where: { travelPackage: { companyId: session.companyId } }, include: { travelPackage: { include: { customer: { select: { name: true } } } } }, orderBy: [{ date: "asc" }, { dayNumber: "asc" }], take: 100 }),
+      prisma.itineraryDay.count({ where: { travelPackage: { companyId: session.companyId } } }),
+      prisma.travelPackage.count({ where: { companyId: session.companyId } }),
+    ]);
+    metrics = [{ label: "Itinerary days", value: String(totalDays) }, { label: "Packages with plans", value: String(new Set(records.map((record) => record.packageId)).size) }, { label: "Total packages", value: String(packages) }];
+    columns = ["ITINERARY / PACKAGE", "DATE"];
+    rows = records.map((record) => ({ title: "Day " + record.dayNumber + " · " + record.title, subtitle: record.travelPackage.title + " · " + record.travelPackage.customer.name, detail: formatDate(record.date), status: "Saved", tone: "green" }));
+  } else if (section === "finance") {
+    const [receipts, bills, receiptCount, openBills, paymentCount] = await Promise.all([
+      prisma.customerReceipt.findMany({ where: { companyId: session.companyId }, include: { travelPackage: { include: { customer: { select: { name: true } } } } }, orderBy: { receivedAt: "desc" }, take: 50 }),
+      prisma.supplierBill.findMany({ where: { companyId: session.companyId }, include: { supplier: { select: { name: true } }, travelPackage: { select: { title: true } } }, orderBy: { billDate: "desc" }, take: 50 }),
+      prisma.customerReceipt.count({ where: { companyId: session.companyId } }),
+      prisma.supplierBill.count({ where: { companyId: session.companyId, status: { in: ["OPEN", "PARTIALLY_PAID"] } } }),
+      prisma.supplierPayment.count({ where: { companyId: session.companyId } }),
+    ]);
+    metrics = [{ label: "Customer receipts", value: String(receiptCount) }, { label: "Open supplier bills", value: String(openBills) }, { label: "Supplier payments", value: String(paymentCount) }];
+    columns = ["PARTY / REFERENCE", "AMOUNT"];
+    rows = [
+      ...receipts.map((record) => ({ title: record.travelPackage.customer.name + " · Customer receipt", subtitle: record.receiptNo + " · " + record.travelPackage.title, detail: money(record.amount, record.currency), status: label(record.status), tone: tone(record.status) })),
+      ...bills.map((record) => ({ title: record.supplier.name + " · Supplier bill", subtitle: record.billNo + " · " + record.travelPackage.title, detail: money(record.amount, record.currency), status: label(record.status), tone: tone(record.status) })),
+    ].sort((a, b) => b.subtitle.localeCompare(a.subtitle)).slice(0, 100);
+    note = "These are receipts and supplier bills actually recorded in the database. Outstanding balances should be reviewed against allocations before being treated as accounting totals.";
+  } else if (section === "reports") {
+    const [packageCount, customerCount, bookingCount, sales, receipts, bills] = await Promise.all([
+      prisma.travelPackage.count({ where: { companyId: session.companyId } }),
+      prisma.customer.count({ where: { companyId: session.companyId } }),
+      prisma.booking.count({ where: { travelPackage: { companyId: session.companyId } } }),
+      prisma.travelPackage.aggregate({ where: { companyId: session.companyId }, _sum: { saleAmount: true } }),
+      prisma.customerReceipt.aggregate({ where: { companyId: session.companyId }, _sum: { amount: true } }),
+      prisma.supplierBill.aggregate({ where: { companyId: session.companyId }, _sum: { amount: true } }),
+    ]);
+    metrics = [{ label: "Customers", value: String(customerCount) }, { label: "Packages", value: String(packageCount) }, { label: "Bookings", value: String(bookingCount) }];
+    columns = ["LIVE MEASURE", "PERIOD"];
+    rows = [
+      { title: "Package sale value", subtitle: "Sum of package sale amounts entered", detail: money(sales._sum.saleAmount), status: "Calculated", tone: "blue" },
+      { title: "Customer receipts recorded", subtitle: "Sum of receipt records; not a revenue recognition measure", detail: money(receipts._sum.amount), status: "Calculated", tone: "blue" },
+      { title: "Supplier bills recorded", subtitle: "Sum of supplier bill amounts before allocation review", detail: money(bills._sum.amount), status: "Calculated", tone: "blue" },
+    ];
+  } else if (section === "settings") {
+    const company = await prisma.company.findUnique({ where: { id: session.companyId } });
+    if (!company) notFound();
+    metrics = [{ label: "Default currency", value: company.baseCurrency }, { label: "Time zone", value: company.timezone }, { label: "GSTIN", value: company.gstin || "Not added" }];
+    columns = ["AGENCY PROFILE", "VALUE"];
+    rows = [
+      { title: "Agency name", subtitle: "Registered workspace name", detail: company.name, status: "Saved", tone: "green" },
+      { title: "Legal name", subtitle: "Name for invoices", detail: company.legalName || "Not added", status: company.legalName ? "Saved" : "Incomplete", tone: company.legalName ? "green" : "amber" },
+      { title: "Email and phone", subtitle: "Agency contact details", detail: [company.email, company.phone].filter(Boolean).join(" · ") || "Not added", status: company.email || company.phone ? "Saved" : "Incomplete", tone: company.email || company.phone ? "green" : "amber" },
+      { title: "Business address", subtitle: "Agency address", detail: company.address || "Not added", status: company.address ? "Saved" : "Incomplete", tone: company.address ? "green" : "amber" },
+    ];
+    note = "This view reflects the company profile saved during first-time setup. Editing these settings is not enabled yet.";
+  }
+
+  return <SectionPage config={{ ...definition, metrics, columns, rows, note }} />;
 }
