@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { SectionPage } from "@/components/section-page";
-import { requireSession } from "@/lib/auth";
+import { requirePageSession } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ const definitions = {
 } as const;
 
 export default async function Page({ params }: { params: { section: string } }) {
-  const session = await requireSession();
+  const session = await requirePageSession();
   const section = params.section as keyof typeof definitions;
   const definition = definitions[section];
   if (!definition) notFound();
