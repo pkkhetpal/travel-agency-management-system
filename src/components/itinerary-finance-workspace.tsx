@@ -212,7 +212,7 @@ export function FinanceWorkspace() {
         </>}
         {tab === "bills" && <>
           <label className="wide-field">Travel package *<select required value={form.packageId} onChange={(e)=>setField("packageId",e.target.value)}><option value="">Select a package</option>{packages.map((p)=><option key={p.id} value={p.id}>{p.referenceNo} · {p.title} · {p.customer.name}</option>)}</select></label>
-          <label>Supplier *</label><select required value={form.supplierId} onChange={(e)=>setField("supplierId",e.target.value)}><option value="">Select supplier</option>{suppliers.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+          <label>Supplier *<select required value={form.supplierId} onChange={(e)=>setField("supplierId",e.target.value)}><option value="">Select supplier</option>{suppliers.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label>Supplier invoice no.<input value={form.supplierInvoiceNo} onChange={(e)=>setField("supplierInvoiceNo",e.target.value)}/></label>
           <label>Bill date *<input type="date" required value={form.billDate} onChange={(e)=>setField("billDate",e.target.value)}/></label>
           <label>Due date<input type="date" value={form.dueDate} onChange={(e)=>setField("dueDate",e.target.value)}/></label>
