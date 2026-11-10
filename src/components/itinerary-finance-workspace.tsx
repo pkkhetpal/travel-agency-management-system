@@ -34,10 +34,10 @@ function bookingsForDate(pkg: PackageOption | undefined, date: string) {
   ].filter(Boolean).join(" · ");
   return {
     matches,
-    description: matches.map(summary).join("\\n"),
+    description: matches.map(summary).join("\n"),
     hotel: matches.filter((booking) => booking.serviceType === "HOTEL").map((booking) =>
       [booking.description, booking.supplier?.name ? "Supplier: " + booking.supplier.name : "", booking.confirmationNo ? "Confirmation: " + booking.confirmationNo : ""].filter(Boolean).join(" · ")
-    ).join("\\n"),
+    ).join("\n"),
   };
 }
 const moneyText = (v: unknown, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(v || 0));
