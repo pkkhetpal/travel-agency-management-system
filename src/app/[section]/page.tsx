@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SalesWorkspace } from "@/components/sales-workspace";
 import { OperationsWorkspace } from "@/components/operations-workspace";
 import { FinanceWorkspace, ItineraryWorkspace } from "@/components/itinerary-finance-workspace";
+import { ReportsWorkspace, SettingsWorkspace } from "@/components/reports-settings-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,8 @@ export default async function Page({ params }: { params: { section: string } }) 
   }
   if (section === "itineraries") return <ItineraryWorkspace />;
   if (section === "finance") return <FinanceWorkspace />;
+  if (section === "reports") return <ReportsWorkspace />;
+  if (section === "settings") return <SettingsWorkspace />;
   const definition = definitions[section as keyof typeof definitions];
   if (!definition) notFound();
 
