@@ -83,7 +83,6 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
   const [notice, setNotice] = useState("");
 
   const records: RecordItem[] = kind === "enquiries" ? enquiries : kind === "quotations" ? quotations : packages;
-  const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer.name])), [customers]);
 
   const load = useCallback(async () => {
     const dependencyEndpoint = kind === "quotations" ? "/api/enquiries" : kind === "packages" ? "/api/quotations" : null;
