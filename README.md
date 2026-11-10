@@ -1,4 +1,4 @@
-# Travel Agency Management System
+# TravelDesk — Travel Agency Management System
 
 A simple, cloud-hosted travel operations system for a small B2C travel agency or tour operator (initially 1–10 employees).
 
@@ -6,42 +6,61 @@ A simple, cloud-hosted travel operations system for a small B2C travel agency or
 
 | Area | Decision |
 |---|---|
-| Business | Tour operator / travel agency |
-| Customers | B2C |
-| Platforms | Responsive web application + installable PWA |
+| Business | B2C travel agency / tour operator |
+| Platforms | Responsive web application; PWA readiness planned |
 | Initial users | 1–10 |
 | Travel categories | International, domestic, group, customized, corporate, honeymoon, hotel-only, visa and cruise |
-| Base currency | INR, with foreign currencies as needed |
-| Package structure | One package can contain many bookings and suppliers |
+| Base currency | INR, with foreign currencies supported |
+| Package structure | One package can contain multiple bookings and suppliers |
 | Finance | Package-level receivables and payables; not a full general ledger |
-| Tax | Configurable GST fields and invoice support |
-| Notifications | WhatsApp Business, email and SMS |
-| Hosting | Cloud |
+| Tax | GST fields and invoice support; tax treatment requires CA validation |
+| Notifications | WhatsApp Business, email and SMS (provider setup pending) |
+| Hosting | Cloud deployment planned |
 
 ## Repository layout
 
-- `docs/` — requirements, architecture, UI inventory, API, finance, notifications, testing and delivery plan.
-- `database/` — PostgreSQL starter schema and implementation notes.
-- `project-management/` — phased work plan, milestones and change control.
-- `frontend/`, `backend/`, `mobile-pwa/` — application code locations for implementation.
+- `src/` — Next.js application source and shared components.
+- `prisma/` — PostgreSQL Prisma schema and database setup notes.
+- `docs/` — requirements, architecture, workflows, finance, notifications and testing.
+- `database/` — original logical SQL starter.
+- `project-management/` — milestones and development tasks.
 
-## Current status
+## Current development status
 
-This repository starts with the approved product specification and a logical database starter. It is **not yet a deployed or production-ready application**. The SQL schema is a starting point and must be reviewed, completed with migrations, indexes, constraints and tests before production use.
+The `feature/app-foundation` branch contains:
+- Responsive dashboard and shared navigation shell.
+- Initial module pages for enquiries, quotations, packages, customers, bookings, suppliers, itineraries, finance, reports and settings.
+- Next.js 14 / React / TypeScript project configuration.
+- Prisma PostgreSQL data model for core operational records.
+- Database setup notes and environment variable template.
 
-## Recommended implementation sequence
+**Important:** these pages currently use illustrative sample data. Database migrations have not yet been applied; authentication, working create/edit workflows, integrations, automated tests and production deployment are still to be implemented. Do not use this build for live customer or financial records.
 
-1. Review and sign off the SRS and data model.
-2. Finalize UI wireframes and workflow acceptance criteria.
-3. Implement authentication, roles and master data.
-4. Implement enquiries, quotations and packages.
-5. Implement guests, bookings and suppliers.
-6. Implement receipts, supplier bills, allocations, currency and GST.
-7. Implement itinerary, documents and notifications.
-8. Implement reports, testing, deployment, backups and handover.
+## Local development setup
+
+Requirements: Node.js 20 LTS and PostgreSQL 15+.
+
+1. Clone the repository and check out `feature/app-foundation`.
+2. Install dependencies: `npm install`.
+3. Copy `.env.example` to `.env` and set `DATABASE_URL`.
+4. Generate the Prisma client: `npm run db:generate`.
+5. Create the initial local migration: `npm run db:migrate -- --name initial`.
+6. Start the development server: `npm run dev`.
+7. Open `http://localhost:3000`.
+
+See [prisma/README.md](prisma/README.md) for database details and [docs/README.md](docs/README.md) for the product specification.
+
+## Planned implementation sequence
+
+1. Complete database migrations, validation and seed/demo data.
+2. Implement secure login, password reset, roles and company isolation.
+3. Implement customer and supplier create/edit/detail workflows.
+4. Implement enquiry → quotation → package conversion.
+5. Implement guests, multiple service bookings, supplier records and itinerary.
+6. Implement receipts, supplier bills, payment allocations, currencies and GST invoices.
+7. Implement notifications, reports, audit trail and document storage.
+8. Run automated tests, security review, deployment, backup/restore and handover.
 
 ## Security baseline
 
-Never commit credentials, API keys, production customer data, passport scans, bank details, or real invoices to this repository. Use environment variables or a secrets manager and private object storage for uploaded documents.
-
-See [Project documentation](docs/README.md) for the specification index.
+Never commit credentials, API keys, production customer data, passport scans, bank details or real invoices. Use environment variables or a secrets manager. Store uploaded travel documents in private object storage with access controls. Enforce company scoping in every database query and test tenant isolation before production.
