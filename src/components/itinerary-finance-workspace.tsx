@@ -288,7 +288,7 @@ export function ItineraryWorkspace() {
           setForm((f) => ({
             ...f,
             title: "Day " + (Number(f.dayNumber) || 1) + " – Explore " + destination,
-            description: [f.description.trim(), tourLines.join("\\n")].filter(Boolean).join("\\n\\n"),
+            description: [f.description.trim(), tourLines.join("\n")].filter(Boolean).join("\n\n"),
           }));
           touched.current.title = true;
           touched.current.description = true;
