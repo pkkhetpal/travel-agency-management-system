@@ -212,7 +212,7 @@ export function TripFileWorkspace({ data }: { data: TripFileData }) {
     <section className="trip-summary-grid">
       <article className="trip-summary-card"><span><Users size={16}/> LEAD TRAVELLER</span><b>{customer.name}</b><small>{[customer.mobile, customer.email].filter(Boolean).join(" · ") || "Contact details not added"}</small></article>
       <article className="trip-summary-card"><span><MapPin size={16}/> DESTINATION & DATES</span><b>{trip.destination || "To be confirmed"}</b><small>{dateText(trip.travelStart)} – {dateText(trip.travelEnd)}</small></article>
-      <article className="trip-summary-card"><span><CalendarDays size={16}/> TRAVELLERS</span><b>{trip.adults} adult(s), {trip.children} child(ren)</b><small>{trip.quotation ? "Linked quotation: " + trip.quotation.referenceNo : "No quotation linked"}</small></article>
+      <article className="trip-summary-card"><span><CalendarDays size={16}/> TRAVELLERS</span><b>{trip.adults} adult(s), {trip.children} child(ren)</b><small>{data.quotation ? "Linked quotation: " + data.quotation.referenceNo : "No quotation linked"}</small></article>
       <article className="trip-summary-card"><span><Wallet size={16}/> PACKAGE VALUE</span><b>{money(trip.saleAmount, trip.currency)}</b><small>{trip.currency} · Internal trip overview</small></article>
     </section>
 
