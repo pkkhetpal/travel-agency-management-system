@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarDays, CircleDollarSign, ClipboardList, Plane, Plus, TrendingUp, Users, Building2 } from "lucide-react";
+import {
+  ArrowRight, ArrowUpRight, CalendarDays, CircleDollarSign,
+  ClipboardList, FileText, Plane, Plus, TrendingUp, Users, Building2,
+} from "lucide-react";
 import { requirePageSession } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -15,20 +18,42 @@ function formatDate(value: Date | null) {
 export default async function Dashboard() {
   const session = await requirePageSession();
   const now = new Date();
+  const companyId = session.companyId;
 
-  const [customerCount, openEnquiries, activePackages, openSupplierBills, upcomingPackages] = await Promise.all([
-    prisma.customer.count({ where: { companyId: session.companyId } }),
+  const [
+    customerCount,
+    openEnquiries,
+    sentQuotations,
+    activePackages,
+    pendingBookings,
+    openSupplierBills,
+    upcomingPackages,
+  ] = await Promise.all([
+    prisma.customer.count({ where: { companyId } }),
     prisma.enquiry.count({
-      where: { companyId: session.companyId, status: { notIn: ["CONVERTED", "LOST"] } },
+      where: { companyId, status: { notIn: ["CONVERTED", "LOST"] } },
+    }),
+    prisma.quotation.count({
+      where: { companyId, status: "SENT" },
     }),
     prisma.travelPackage.count({
-      where: { companyId: session.companyId, status: { in: ["CONFIRMED", "IN_PROGRESS"] } },
+      where: { companyId, status: { in: ["CONFIRMED", "IN_PROGRESS"] } },
+    }),
+    prisma.booking.count({
+      where: {
+        travelPackage: { companyId },
+        status: { in: ["REQUESTED", "ON_HOLD"] },
+      },
     }),
     prisma.supplierBill.count({
-      where: { companyId: session.companyId, status: { in: ["OPEN", "PARTIALLY_PAID"] } },
+      where: { companyId, status: { in: ["OPEN", "PARTIALLY_PAID"] } },
     }),
     prisma.travelPackage.findMany({
-      where: { companyId: session.companyId, travelStart: { gte: now } },
+      where: {
+        companyId,
+        travelStart: { gte: now },
+        status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+      },
       include: { customer: { select: { name: true } } },
       orderBy: { travelStart: "asc" },
       take: 5,
@@ -36,10 +61,12 @@ export default async function Dashboard() {
   ]);
 
   const stats = [
-    { label: "Customers", value: customerCount, note: "Saved in your agency", icon: Users, tone: "blue" },
-    { label: "Open enquiries", value: openEnquiries, note: "Not yet converted or closed", icon: ClipboardList, tone: "amber" },
-    { label: "Active packages", value: activePackages, note: "Confirmed or in progress", icon: Plane, tone: "green" },
-    { label: "Open supplier bills", value: openSupplierBills, note: "Awaiting full payment", icon: CircleDollarSign, tone: "purple" },
+    { label: "Customers", value: customerCount, note: "Saved in your agency", icon: Users, tone: "blue", href: "/customers" },
+    { label: "Open enquiries", value: openEnquiries, note: "Not converted or closed", icon: ClipboardList, tone: "amber", href: "/enquiries" },
+    { label: "Sent quotations", value: sentQuotations, note: "Waiting for a decision", icon: FileText, tone: "purple", href: "/quotations" },
+    { label: "Active packages", value: activePackages, note: "Confirmed or in progress", icon: Plane, tone: "green", href: "/packages" },
+    { label: "Pending bookings", value: pendingBookings, note: "Requested or on hold", icon: CalendarDays, tone: "amber", href: "/bookings" },
+    { label: "Open supplier bills", value: openSupplierBills, note: "Awaiting full payment", icon: CircleDollarSign, tone: "purple", href: "/finance" },
   ];
 
   return <>
@@ -52,24 +79,24 @@ export default async function Dashboard() {
       <Link className="button button-primary" href="/enquiries"><Plus size={17}/> New enquiry</Link>
     </div>
 
-    <section className="stats-grid">
+    <section className="stats-grid" aria-label="Live agency totals">
       {stats.map((stat) => {
         const Icon = stat.icon;
-        return <article className="stat-card" key={stat.label}>
+        return <Link className="stat-card stat-card-link" href={stat.href} key={stat.label}>
           <div className="stat-top">
             <span>{stat.label}</span>
             <span className={`stat-icon ${stat.tone}`}><Icon size={18}/></span>
           </div>
           <strong>{stat.value.toLocaleString("en-IN")}</strong>
           <small>{stat.note}</small>
-        </article>;
+        </Link>;
       })}
     </section>
 
     <div className="dashboard-grid">
       <section className="panel trips-panel">
         <div className="panel-heading">
-          <div><h2>Upcoming packages</h2><p>Packages with future travel dates in your database.</p></div>
+          <div><h2>Upcoming confirmed trips</h2><p>Next departures for confirmed and in-progress packages.</p></div>
           <Link href="/packages" className="text-link">View all <ArrowRight size={15}/></Link>
         </div>
         <div className="table-wrap">
@@ -84,7 +111,7 @@ export default async function Dashboard() {
                   <td>{pkg.adults + pkg.children}</td>
                   <td><span className="status status-blue">{pkg.status.replaceAll("_", " ")}</span></td>
                 </tr>
-              )) : <tr><td colSpan={5} className="empty-cell">No upcoming packages yet. Create a package to see departures here.</td></tr>}
+              )) : <tr><td colSpan={5} className="empty-cell">No upcoming confirmed trips yet. Confirm a package with a future departure date to see it here.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -111,6 +138,6 @@ export default async function Dashboard() {
         <div><b>Business reports</b><p>Review totals calculated from your agency records.</p><Link href="/reports">View reports <ArrowRight size={14}/></Link></div>
       </article>
     </section>
-    <p className="demo-note">Live workspace · Counts above are read from your agency database. Empty sections mean no records have been entered yet.</p>
+    <p className="demo-note">Live workspace · Counts are refreshed from your agency database whenever this page loads. Select a count to open its records.</p>
   </>;
 }
