@@ -18,8 +18,11 @@ export async function GET() {
     const bookings = await prisma.booking.findMany({
       where: { travelPackage: { companyId: session.companyId } },
       include: {
-        travelPackage: { select: { id: true, title: true, referenceNo: true, customer: { select: { name: true } } } },
-        supplier: { select: { id: true, name: true } },
+        travelPackage: { select: {
+          id: true, title: true, referenceNo: true, destination: true, travelStart: true, travelEnd: true,
+          adults: true, children: true, customer: { select: { name: true } },
+        } },
+        supplier: { select: { id: true, name: true, contactName: true, phone: true } },
       },
       orderBy: { updatedAt: "desc" },
       take: 250,
@@ -66,8 +69,11 @@ export async function POST(request: Request) {
         costExchangeRate: positiveRate(body.costExchangeRate, "Cost exchange rate", 1),
       },
       include: {
-        travelPackage: { select: { id: true, title: true, referenceNo: true, customer: { select: { name: true } } } },
-        supplier: { select: { id: true, name: true } },
+        travelPackage: { select: {
+          id: true, title: true, referenceNo: true, destination: true, travelStart: true, travelEnd: true,
+          adults: true, children: true, customer: { select: { name: true } },
+        } },
+        supplier: { select: { id: true, name: true, contactName: true, phone: true } },
       },
     });
     return NextResponse.json({ booking }, { status: 201 });
