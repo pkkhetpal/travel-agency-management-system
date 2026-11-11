@@ -271,6 +271,29 @@ export function ItineraryWorkspace() {
           : "No matching OpenStreetMap places were found. Check the spelling or try a shorter search.");
       } else if (discover) {
         setAssistantNotice("Found " + results.length + " mapped " + (kind === "hotel" ? "hotel options" : "places to visit") + " in the " + destination + " area. These are suggestions, not bookings.");
+        if (kind === "attraction" && !touched.current.title && !touched.current.description) {
+          const stops = results.slice(0, 5);
+          const tourLines = [
+            "Suggested self-guided sightseeing route for " + destination + ".",
+            "Draft stop order is based on nearby mapped places. Check the route, transport, opening hours, ticket requirements and suitability before sharing with the customer.",
+            "",
+            ...stops.flatMap((place, index) => [
+              (index + 1) + ". " + place.name + " (" + place.category + ")",
+              "   " + place.address,
+              "   Map: " + place.mapUrl,
+              "",
+            ]),
+            "These are sightseeing suggestions only. No guide, transport, entry ticket or tour booking is included or confirmed.",
+          ];
+          setForm((f) => ({
+            ...f,
+            title: "Day " + (Number(f.dayNumber) || 1) + " – Explore " + destination,
+            description: [f.description.trim(), tourLines.join("\\n")].filter(Boolean).join("\\n\\n"),
+          }));
+          touched.current.title = true;
+          touched.current.description = true;
+          setAssistantNotice("Found " + results.length + " mapped places and prepared a day-tour draft from the first " + stops.length + " stops. Review the route and details before saving.");
+        }
       } else {
         setAssistantNotice("Found " + results.length + " matching places. Check each result before adding it to the itinerary.");
       }
