@@ -88,7 +88,7 @@ export function openPrintableDocument(document: PrintableDocument): void {
   .document { max-width: 820px; margin: 0 auto; }
   .masthead { border-bottom: 3px solid #173b72; padding: 8px 0 16px; display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
   .brand { color: #173b72; font-size: 19px; font-weight: 800; letter-spacing: .2px; }
-  .brand small { display: block; margin-top: 2px; color: #69758b; font-size: 9px; font-weight: 600; letter-spacing: 1.5px; }
+  .brand small { display: block; margin-top: 3px; color: #a98445; font-size: 9px; font-weight: 700; letter-spacing: 1.8px; }
   .document-type { text-align: right; }
   h1 { margin: 22px 0 4px; font-size: 25px; line-height: 1.2; }
   .subtitle { margin: 0 0 16px; color: #657189; font-size: 13px; }
@@ -114,12 +114,12 @@ export function openPrintableDocument(document: PrintableDocument): void {
 <body>
 <div class="document">
   <div class="toolbar"><button id="printButton" type="button">Print / Save as PDF</button></div>
-  <header class="masthead"><div class="brand">${agencyName}<small>TRAVEL DOCUMENT</small></div><div class="document-type"><strong>${reference}</strong><br><span>Prepared on ${escapeHtml(preparedOn)}</span></div></header>
+  <header class="masthead"><div class="brand">${agencyName}<small>LUXURY SIMPLIFIED</small></div><div class="document-type"><strong>${reference}</strong><br><span>Prepared on ${escapeHtml(preparedOn)}</span></div></header>
   <h1>${title}</h1>
   ${subtitle}
   <div class="meta">${customer}<div><span>Reference</span><strong>${reference}</strong></div></div>
   ${sectionsHtml}
-  <div class="footer">Prepared using TravelDesk. Please review travel dates, prices, inclusions and booking confirmations before sharing.</div>
+  <div class="footer">Prepared by ${agencyName} · Luxury Simplified. Please review travel dates, prices, inclusions and booking confirmations before sharing.</div>
 </div>
 </body>
 </html>`);
