@@ -172,3 +172,8 @@ body{background:var(--bg);color:var(--ink)}
 .auth-brand-name{display:flex;flex-direction:column;gap:1px;color:#17243a;font-size:22px;font-weight:800;letter-spacing:-.6px}
 .auth-brand-name small{color:#a98445;font-size:8px;font-weight:750;letter-spacing:1.8px}
 .auth-brand .brand-mark{background:#f3ead9;color:#a98445;border:1px solid #eadcc3}
+
+/* Client service voucher action */
+.voucher-button{padding:6px 9px;font-size:10px;white-space:nowrap;border-color:#e4d7c2;color:#86642f}
+.voucher-button:hover{background:#fbf7ef;border-color:#cdb991}
+.workflow-actions{flex-wrap:wrap}
