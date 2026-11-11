@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, Edit2, Plane, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Building2, CalendarDays, Edit2, FileDown, Plane, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { openPrintableDocument } from "@/lib/print-document";
 
 type Kind = "suppliers" | "bookings";
 type Supplier = {
@@ -9,12 +10,17 @@ type Supplier = {
   email: string | null; phone: string | null; country: string | null; taxNumber: string | null;
   notes: string | null; isActive: boolean; _count?: { bookings: number; bills: number };
 };
-type PackageOption = { id: string; title: string; referenceNo: string; customer: { name: string } };
+type PackageOption = {
+  id: string; title: string; referenceNo: string; destination?: string | null;
+  travelStart?: string | null; travelEnd?: string | null; adults?: number; children?: number;
+  customer: { name: string };
+};
 type Booking = {
   id: string; referenceNo: string; packageId: string; supplierId: string | null; serviceType: string;
   description: string; serviceDate: string | null; confirmationNo: string | null; status: string;
   supplierCost: string | number; costCurrency: string; costExchangeRate: string | number;
-  travelPackage: PackageOption; supplier: { id: string; name: string } | null;
+  travelPackage: PackageOption;
+  supplier: { id: string; name: string; contactName?: string | null; phone?: string | null } | null;
 };
 type FormState = Record<string, string>;
 const supplierBlank: FormState = { name: "", category: "HOTEL", contactName: "", email: "", phone: "", country: "India", taxNumber: "", notes: "", isActive: "true" };
@@ -23,6 +29,47 @@ const services = ["FLIGHT", "HOTEL", "TRANSFER", "ACTIVITY", "VISA", "CRUISE", "
 const bookingStatuses = ["REQUESTED", "ON_HOLD", "CONFIRMED", "CANCELLED", "COMPLETED"];
 const serviceLabel = (v: string) => v.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 const dateInput = (v: string | null) => v ? new Date(v).toISOString().slice(0, 10) : "";
+function printServiceVoucher(booking: Booking) {
+  const pkg = booking.travelPackage;
+  const titleByType: Record<string, string> = {
+    HOTEL: "Hotel Confirmation Voucher",
+    TRANSFER: "Transfer Voucher",
+    ACTIVITY: "Sightseeing & Activity Voucher",
+    FLIGHT: "Flight Service Voucher",
+    VISA: "Visa Service Voucher",
+    CRUISE: "Cruise Service Voucher",
+    INSURANCE: "Travel Insurance Voucher",
+  };
+  const formatDate = (value: string | null | undefined) => value
+    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date(value))
+    : "To be confirmed";
+  openPrintableDocument({
+    agencyName: "Prime Holidays",
+    title: titleByType[booking.serviceType] || "Travel Service Voucher",
+    reference: booking.referenceNo,
+    subtitle: [pkg?.title, pkg?.destination].filter(Boolean).join(" · "),
+    customer: pkg?.customer?.name || "Guest",
+    sections: [
+      { title: "Trip details", entries: [
+        { label: "Destination", value: pkg?.destination || "As per confirmed trip plan" },
+        { label: "Travel dates", value: [formatDate(pkg?.travelStart), formatDate(pkg?.travelEnd)].join(" to ") },
+        { label: "Travellers", value: pkg?.adults !== undefined ? (pkg.adults + " adult(s), " + (pkg.children || 0) + " child(ren)") : "As per guest list" },
+        { label: "Trip reference", value: pkg?.referenceNo || "—" },
+      ]},
+      { title: "Confirmed service", entries: [
+        { label: "Service type", value: serviceLabel(booking.serviceType) },
+        { label: "Service details", value: booking.description },
+        { label: "Service date", value: formatDate(booking.serviceDate) },
+        { label: "Hotel / service provider", value: booking.supplier?.name || "Details to be confirmed by the agency" },
+        { label: "Provider contact", value: booking.supplier?.phone || undefined },
+        { label: "Confirmation number", value: booking.confirmationNo || "See booking reference" },
+        { label: "Voucher reference", value: booking.referenceNo },
+      ]},
+      { title: "Important information", body: "Please present this voucher to the service provider when requested. Carry valid identification and review the service details, timings, meeting point and inclusions before travel. Contact Prime Holidays if any detail needs correction." },
+    ],
+  });
+}
+
 
 export function OperationsWorkspace({ kind }: { kind: Kind }) {
   const isSupplier = kind === "suppliers";
@@ -146,7 +193,7 @@ export function OperationsWorkspace({ kind }: { kind: Kind }) {
         !isSupplier && packages.length === 0 ? <div className="workflow-empty"><Plane size={28}/><b>Create a travel package first</b><p>Each booking must belong to a customer travel package.</p></div> :
         filtered.length === 0 ? <div className="workflow-empty">{isSupplier ? <Building2 size={28}/> : <Plane size={28}/>}<b>{query ? "No matching records" : isSupplier ? "No suppliers yet" : "No bookings yet"}</b><p>{query ? "Try another search." : isSupplier ? "Add hotels, airlines, transport providers and other partners." : "Add a flight, hotel, transfer, activity, visa or other service."}</p><button className="button button-primary" onClick={() => start()}><Plus size={15}/> {isSupplier ? "Add first supplier" : "Add first booking"}</button></div> :
         <div className="table-wrap"><table><thead><tr>{isSupplier ? <><th>SUPPLIER</th><th>CONTACT</th><th>RECORDS</th><th>STATUS</th></> : <><th>BOOKING</th><th>PACKAGE / CUSTOMER</th><th>SERVICE DATE</th><th>SUPPLIER</th><th>STATUS</th></>}<th>ACTIONS</th></tr></thead><tbody>
-          {filtered.map((item) => isSupplier ? (() => { const s = item as Supplier; return <tr key={s.id}><td><b>{s.name}</b><small>{s.category || "General supplier"}{s.contactName ? " · " + s.contactName : ""}</small></td><td>{s.email || "—"}<small>{s.phone || ""}</small></td><td>{s._count?.bookings || 0} bookings · {s._count?.bills || 0} bills</td><td><span className={"status " + (s.isActive ? "status-green" : "status-gray")}>{s.isActive ? "Active" : "Inactive"}</span></td><td><div className="workflow-actions"><button className="icon-button" title="Edit supplier" onClick={() => start(s)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete supplier" onClick={() => remove(s)}><Trash2 size={15}/></button></div></td></tr>; })() : (() => { const b = item as Booking; const color = ["CONFIRMED", "COMPLETED"].includes(b.status) ? "green" : ["CANCELLED"].includes(b.status) ? "gray" : "amber"; return <tr key={b.id}><td><b>{serviceLabel(b.serviceType)} · {b.description}</b><small>{b.referenceNo}{b.confirmationNo ? " · " + b.confirmationNo : ""}</small></td><td><b>{b.travelPackage?.title || "Travel package"}</b><small>{b.travelPackage?.customer?.name || ""}</small></td><td>{b.serviceDate ? new Date(b.serviceDate).toLocaleDateString("en-IN") : "—"}</td><td>{b.supplier?.name || "Not assigned"}</td><td><span className={"status status-" + color}>{serviceLabel(b.status)}</span></td><td><div className="workflow-actions"><button className="icon-button" title="Edit booking" onClick={() => start(b)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete booking" onClick={() => remove(b)}><Trash2 size={15}/></button></div></td></tr>; })())}
+          {filtered.map((item) => isSupplier ? (() => { const s = item as Supplier; return <tr key={s.id}><td><b>{s.name}</b><small>{s.category || "General supplier"}{s.contactName ? " · " + s.contactName : ""}</small></td><td>{s.email || "—"}<small>{s.phone || ""}</small></td><td>{s._count?.bookings || 0} bookings · {s._count?.bills || 0} bills</td><td><span className={"status " + (s.isActive ? "status-green" : "status-gray")}>{s.isActive ? "Active" : "Inactive"}</span></td><td><div className="workflow-actions"><button className="icon-button" title="Edit supplier" onClick={() => start(s)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete supplier" onClick={() => remove(s)}><Trash2 size={15}/></button></div></td></tr>; })() : (() => { const b = item as Booking; const color = ["CONFIRMED", "COMPLETED"].includes(b.status) ? "green" : ["CANCELLED"].includes(b.status) ? "gray" : "amber"; return <tr key={b.id}><td><b>{serviceLabel(b.serviceType)} · {b.description}</b><small>{b.referenceNo}{b.confirmationNo ? " · " + b.confirmationNo : ""}</small></td><td><b>{b.travelPackage?.title || "Travel package"}</b><small>{b.travelPackage?.customer?.name || ""}</small></td><td>{b.serviceDate ? new Date(b.serviceDate).toLocaleDateString("en-IN") : "—"}</td><td>{b.supplier?.name || "Not assigned"}</td><td><span className={"status status-" + color}>{serviceLabel(b.status)}</span></td><td><div className="workflow-actions">{b.status === "CONFIRMED" && <button className="button button-secondary voucher-button" title="Print client service voucher" onClick={() => printServiceVoucher(b)}><FileDown size={14}/> Voucher</button>}<button className="icon-button" title="Edit booking" onClick={() => start(b)}><Edit2 size={15}/></button><button className="icon-button danger-icon" title="Delete booking" onClick={() => remove(b)}><Trash2 size={15}/></button></div></td></tr>; })())}
         </tbody></table></div>}
       <div className="list-footer">Live database records <span>{filtered.length} shown</span></div>
     </section>

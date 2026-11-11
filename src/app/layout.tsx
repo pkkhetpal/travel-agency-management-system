@@ -3,8 +3,8 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "TravelDesk | Travel Agency Management",
-  description: "A simple workspace for travel enquiries, packages, bookings and payments."
+  title: "Prime Holidays | Luxury Simplified",
+  description: "A premium workspace for travel quotations, itineraries, bookings and client vouchers."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
