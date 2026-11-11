@@ -173,6 +173,10 @@ export function ItineraryWorkspace() {
     setActivitySearch(day?.title || "");
     setForm(day ? { packageId: day.packageId, dayNumber: String(day.dayNumber), date: dateValue(day.date), title: day.title, description: saved.text, hotel: day.hotel || "", meals: day.meals || "" } : { ...blank });
     setOpen(true);
+    const packageForDay = day ? packages.find((pkg) => pkg.id === day.packageId) : undefined;
+    if (packageForDay?.destination) {
+      void searchPlaces("attraction", true, packageForDay.destination);
+    }
   }
   function setField(k: string, v: string) {
     if (k in touched.current) touched.current[k as keyof typeof touched.current] = true;
@@ -192,6 +196,9 @@ export function ItineraryWorkspace() {
     setAssistantNotice("");
     setAssistantError("");
     setForm((f) => ({ ...f, packageId, date, title: pkg ? "Day " + dayNumber + " – " + (pkg.destination || pkg.title) : "", description: auto.description, hotel: auto.hotel, meals: "" }));
+    if (pkg?.destination) {
+      void searchPlaces("attraction", true, pkg.destination);
+    }
   }
   function changeDayNumber(value: string) {
     const dayNumber = Math.max(1, Number(value) || 1);
@@ -233,23 +240,63 @@ export function ItineraryWorkspace() {
     setAssistantNotice("A free template-based draft is ready. Review it and adjust details before saving.");
     setActivitySearch(prompt);
   }
-  async function searchPlaces(kind: "hotel" | "attraction") {
+  async function searchPlaces(kind: "hotel" | "attraction", discoverAll = false, destinationOverride?: string) {
     const query = kind === "hotel" ? form.hotel.split("\n")[0].trim() : activitySearch.trim();
-    if (!query || query.length < 3) {
-      setAssistantError(kind === "hotel" ? "Enter a hotel name first." : "Enter an attraction or activity to search.");
+    const destination = destinationOverride || selectedPackage?.destination || "";
+    const discover = discoverAll || !query;
+    if (!discover && query.length < 3) {
+      setAssistantError(kind === "hotel" ? "Enter at least 3 letters of a hotel name, or leave it blank to discover hotels in the destination." : "Enter at least 3 letters, or leave the search blank to discover attractions in the destination.");
+      return;
+    }
+    if (discover && destination.trim().length < 2) {
+      setAssistantError("Add a destination to this travel package before discovering nearby places.");
       return;
     }
     setPlaceLoading(kind);
     setAssistantError("");
-    setAssistantNotice("");
+    setAssistantNotice(discover
+      ? "Finding mapped " + (kind === "hotel" ? "hotels" : "attractions") + " in " + destination + "…"
+      : "");
     try {
-      const params = new URLSearchParams({ query, destination: selectedPackage?.destination || "", kind });
+      const params = new URLSearchParams({ query: discover ? "" : query, destination, kind });
+      if (discover) params.set("discover", "1");
       const response = await fetch("/api/itineraries/places?" + params.toString(), { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not search places.");
       const results = (data.places || []) as PlaceSuggestion[];
       if (kind === "hotel") setHotelPlaces(results); else setActivityPlaces(results);
-      if (!results.length) setAssistantNotice("No matching OpenStreetMap places were found. Check the spelling or try a shorter search.");
+      if (!results.length) {
+        setAssistantNotice(discover
+          ? "No mapped " + (kind === "hotel" ? "hotels" : "attractions") + " were found near " + destination + ". Try a more specific place or another destination spelling."
+          : "No matching OpenStreetMap places were found. Check the spelling or try a shorter search.");
+      } else if (discover) {
+        setAssistantNotice("Found " + results.length + " mapped " + (kind === "hotel" ? "hotel options" : "places to visit") + " in the " + destination + " area. These are suggestions, not bookings.");
+        if (kind === "attraction" && !touched.current.title && !touched.current.description) {
+          const stops = results.slice(0, 5);
+          const tourLines = [
+            "Suggested self-guided sightseeing route for " + destination + ".",
+            "Draft stop order is based on nearby mapped places. Check the route, transport, opening hours, ticket requirements and suitability before sharing with the customer.",
+            "",
+            ...stops.flatMap((place, index) => [
+              (index + 1) + ". " + place.name + " (" + place.category + ")",
+              "   " + place.address,
+              "   Map: " + place.mapUrl,
+              "",
+            ]),
+            "These are sightseeing suggestions only. No guide, transport, entry ticket or tour booking is included or confirmed.",
+          ];
+          setForm((f) => ({
+            ...f,
+            title: "Day " + (Number(f.dayNumber) || 1) + " – Explore " + destination,
+            description: [f.description.trim(), tourLines.join("\n")].filter(Boolean).join("\n\n"),
+          }));
+          touched.current.title = true;
+          touched.current.description = true;
+          setAssistantNotice("Found " + results.length + " mapped places and prepared a day-tour draft from the first " + stops.length + " stops. Review the route and details before saving.");
+        }
+      } else {
+        setAssistantNotice("Found " + results.length + " matching places. Check each result before adding it to the itinerary.");
+      }
     } catch (e) {
       setAssistantError(e instanceof Error ? e.message : "Could not search places.");
     } finally {
@@ -390,18 +437,20 @@ export function ItineraryWorkspace() {
         <label>Date<input type="date" value={form.date} onChange={(e) => changeItineraryDate(e.target.value)}/></label>
         <label className="wide-field">Day title *<input required value={form.title} onChange={(e) => { setField("title", e.target.value); setActivitySearch(e.target.value); }} placeholder="e.g. Arrive at Singapore airport"/></label>
         <div className="wide-field itinerary-assistant">
-          <div><b>Free itinerary helper</b><small>Enter a simple day idea above, then generate a practical editable draft. This uses built-in travel templates, not paid AI.</small></div>
+          <div><b>Free itinerary helper</b><small>Generate an editable day-plan draft, then use the destination search below to find real mapped places. The day-plan text uses free templates, not paid AI.</small></div>
           <button type="button" className="button button-secondary" onClick={generateDayPlan}>Generate day plan</button>
         </div>
         <label className="wide-field">Activities / description<textarea rows={5} value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Your day plan will appear here. You can edit every line."/></label>
         <div className="wide-field assistant-search-panel">
-          <div className="assistant-search-heading"><b>Find nearby attractions</b><small>Search OpenStreetMap once when you click; results are suggestions, not bookings.</small></div>
-          <div className="assistant-search-row"><input value={activitySearch} onChange={(e) => setActivitySearch(e.target.value)} placeholder="e.g. Gardens by the Bay, museum, temple"/><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("attraction")}>{placeLoading === "attraction" ? "Searching…" : "Find places"}</button></div>
+          <div className="assistant-search-heading"><b>Nearby attractions & sightseeing ideas</b><small>TravelDesk looks up mapped places automatically when you choose a package. Leave the search blank to refresh destination suggestions, or type a specific landmark.</small></div>
+          <div className="assistant-search-row"><input value={activitySearch} onChange={(e) => setActivitySearch(e.target.value)} placeholder="Leave blank for destination ideas, or enter a museum / landmark"/><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("attraction")}>{placeLoading === "attraction" ? "Searching…" : "Find places"}</button></div>
           {activityPlaces.length > 0 && <div className="assistant-result-list">{activityPlaces.map((place) => <div className="assistant-place-result" key={place.id}><div><b>{place.name}</b><small>{place.address}</small><small>{place.category}</small><a href={place.mapUrl} target="_blank" rel="noreferrer">Open map</a></div><button type="button" className="button button-secondary" onClick={() => addActivityPlace(place)}>Add stop</button></div>)}</div>}
+          <small>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. Destination lookup uses the shared free <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noreferrer">Nominatim service</a>: maximum one request per second, cached lookups, and no autocomplete.</small>
         </div>
         <label className="wide-field">Hotel / accommodation<textarea rows={3} value={form.hotel} onChange={(e) => setField("hotel", e.target.value)} placeholder="Enter the hotel name. Choose a result to add its address and contact details."/></label>
         <div className="wide-field assistant-search-panel">
-          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Find hotel details</b><small>Look up a hotel name, address, phone, website and map link when listed in OpenStreetMap.</small></div><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("hotel")}>{placeLoading === "hotel" ? "Searching…" : "Find hotel"}</button></div>
+          <div className="assistant-search-row"><div className="assistant-search-heading"><b>Find hotel details</b><small>Type a hotel name to look it up, or leave the field blank to discover mapped hotels near the package destination.</small></div><button type="button" className="button button-secondary" disabled={placeLoading !== ""} onClick={() => searchPlaces("hotel")}>{placeLoading === "hotel" ? "Searching…" : "Find hotel"}</button></div>
+          <small>Destination lookup uses the shared free <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noreferrer">Nominatim service</a>, with a maximum of one request per second, cached lookups and no autocomplete.</small>
           {hotelPlaces.length > 0 && <div className="assistant-result-list">{hotelPlaces.map((place) => <div className="assistant-place-result" key={place.id}><div><b>{place.name}</b><small>{place.address}</small>{place.phone && <small>Phone: {place.phone}</small>}{place.website && <small><a href={place.website} target="_blank" rel="noreferrer">{place.website}</a></small>}<a href={place.mapUrl} target="_blank" rel="noreferrer">Open map · © OpenStreetMap</a></div><button type="button" className="button button-secondary" onClick={() => chooseHotel(place)}>Use hotel</button></div>)}</div>}
         </div>
         <div className="wide-field assistant-search-panel">

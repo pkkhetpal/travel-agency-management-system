@@ -17,6 +17,16 @@ type NominatimItem = {
   address?: Record<string, string>;
   extratags?: Record<string, string>;
   namedetails?: Record<string, string>;
+  boundingbox?: string[];
+};
+
+type OverpassElement = {
+  type: string;
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
 };
 
 let lastNominatimRequestAt = 0;
@@ -42,6 +52,198 @@ function buildAddress(address: Record<string, string> | undefined, fallback: str
   return fields.length ? [...new Set(fields)].join(", ") : fallback;
 }
 
+function tagAddress(tags: Record<string, string>, destination: string) {
+  const fields = [
+    tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"],
+    tags["addr:city"] || tags["addr:town"] || tags["addr:village"],
+    tags["addr:state"], tags["addr:postcode"], tags["addr:country"],
+  ].filter(Boolean);
+  return fields.length ? [...new Set(fields)].join(", ") : destination + " area (exact street address not listed)";
+}
+
+function categoryLabel(tags: Record<string, string>, kind: "hotel" | "attraction") {
+  const raw = tags.tourism || tags.historic || tags.leisure || tags.natural || tags.amenity || tags.building || "";
+  const labels: Record<string, string> = {
+    attraction: "Attraction", museum: "Museum", gallery: "Gallery",
+    theme_park: "Theme park", zoo: "Zoo", aquarium: "Aquarium",
+    viewpoint: "Viewpoint", artwork: "Artwork", hotel: "Hotel",
+    hostel: "Hostel", guest_house: "Guest house", motel: "Motel",
+    apartment: "Apartment stay", chalet: "Chalet", park: "Park",
+    garden: "Garden", nature_reserve: "Nature reserve", beach: "Beach",
+    peak: "Peak", waterfall: "Waterfall", place_of_worship: "Place of worship",
+    theatre: "Theatre", arts_centre: "Arts centre", castle: "Castle",
+    archaeological_site: "Historic site", monument: "Monument",
+    memorial: "Memorial", ruins: "Historic ruins", fort: "Fort",
+  };
+  return labels[raw] || (kind === "hotel" ? "Accommodation" : "Place to visit");
+}
+
+function haversineKm(aLat: number, aLon: number, bLat: number, bLon: number) {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLon = (bLon - aLon) * rad;
+  const value = Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+async function geocodeDestination(destination: string) {
+  await waitForNominatimSlot();
+  const endpoint = new URL("https://nominatim.openstreetmap.org/search");
+  endpoint.search = new URLSearchParams({
+    q: destination,
+    format: "jsonv2",
+    addressdetails: "1",
+    limit: "1",
+    dedupe: "1",
+  }).toString();
+
+  const response = await fetch(endpoint, {
+    headers: {
+      "User-Agent": "TravelDesk/0.2 (travel agency itinerary place lookup)",
+      "Accept-Language": "en",
+    },
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 403 || response.status === 429
+      ? "The shared free map search is temporarily limiting requests. Please wait a little and try again."
+      : "The free map search could not locate this destination right now.");
+  }
+  const items = await response.json() as NominatimItem[];
+  const item = items[0];
+  if (!item || !Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lon))) {
+    throw new Error("We could not locate this destination on the free map. Add a city and country, for example “Jaipur, India”.");
+  }
+  return {
+    lat: Number(item.lat),
+    lon: Number(item.lon),
+    label: buildAddress(item.address, item.display_name),
+  };
+}
+
+async function discoverMappedPlaces(destination: string, kind: "hotel" | "attraction") {
+  const center = await geocodeDestination(destination);
+  const around = "around:6500," + center.lat + "," + center.lon;
+  const selectors = kind === "hotel"
+    ? [
+        'nwr(' + around + ')["name"]["tourism"~"^(hotel|hostel|guest_house|motel|apartment|chalet)$"];',
+      ]
+    : [
+        'nwr(' + around + ')["name"]["tourism"~"^(attraction|museum|gallery|theme_park|zoo|aquarium|viewpoint|artwork)$"];',
+        'nwr(' + around + ')["name"]["historic"];',
+        'nwr(' + around + ')["name"]["leisure"~"^(park|garden|nature_reserve)$"];',
+        'nwr(' + around + ')["name"]["natural"~"^(beach|peak|waterfall)$"];',
+        'nwr(' + around + ')["name"]["amenity"~"^(place_of_worship|theatre|arts_centre)$"];',
+      ];
+
+  const query = "[out:json][timeout:18];(" + selectors.join("") + ");out center tags 45;";
+  const endpoint = new URL("https://overpass-api.de/api/interpreter");
+  endpoint.searchParams.set("data", query);
+  const response = await fetch(endpoint, {
+    headers: {
+      "User-Agent": "TravelDesk/0.2 (travel agency itinerary place lookup)",
+    },
+    next: { revalidate: 21600 },
+    signal: AbortSignal.timeout(22000),
+  });
+
+  if (!response.ok) {
+    throw new Error(response.status === 429 || response.status === 504
+      ? "The free map service is busy right now. Please try the search again shortly."
+      : "Nearby place discovery is temporarily unavailable. You can still search for a specific place by name.");
+  }
+
+  const data = await response.json() as { elements?: OverpassElement[]; remark?: string };
+  if (data.remark) {
+    throw new Error("The free map service could not complete this nearby search. Please try again in a moment.");
+  }
+
+  const elements = data.elements || [];
+  const places = elements.flatMap((element) => {
+    const tags = element.tags || {};
+    const lat = element.lat ?? element.center?.lat;
+    const lon = element.lon ?? element.center?.lon;
+    const name = tags.name || tags["name:en"];
+    if (!name || typeof lat !== "number" || typeof lon !== "number") return [];
+    const address = tagAddress(tags, center.label || destination);
+    const phone = tags["contact:phone"] || tags.phone || tags["contact:mobile"] || "";
+    const website = tags["contact:website"] || tags.website || "";
+    const mapUrl = "https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lon + "#map=17/" + lat + "/" + lon;
+    return [{
+      id: element.type + "-" + element.id,
+      name,
+      address,
+      phone,
+      website,
+      category: categoryLabel(tags, kind),
+      latitude: lat,
+      longitude: lon,
+      mapUrl,
+      source: "OpenStreetMap",
+      kind,
+      distanceKm: haversineKm(center.lat, center.lon, lat, lon),
+    }];
+  });
+
+  const unique = Array.from(new Map(places.map((place) => [place.id, place])).values())
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, 30)
+    .map(({ distanceKm, ...place }) => place);
+
+  return {
+    places: unique,
+    center: { latitude: center.lat, longitude: center.lon, label: center.label },
+  };
+}
+
+async function searchNamedPlaces(query: string, destination: string, kind: "hotel" | "attraction") {
+  await waitForNominatimSlot();
+  const endpoint = new URL("https://nominatim.openstreetmap.org/search");
+  endpoint.search = new URLSearchParams({
+    q: [query, destination].filter(Boolean).join(", "),
+    format: "jsonv2",
+    addressdetails: "1",
+    extratags: "1",
+    namedetails: "1",
+    limit: "7",
+  }).toString();
+
+  const response = await fetch(endpoint, {
+    headers: {
+      "User-Agent": "TravelDesk/0.2 (travel agency itinerary place lookup)",
+      "Accept-Language": "en",
+    },
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 403 || response.status === 429
+      ? "The shared free map search is temporarily limiting requests. Please wait a little and try again."
+      : "The free map search is temporarily unavailable. Please try again later.");
+  }
+  const items = await response.json() as NominatimItem[];
+  const places = items.map((item) => {
+    const tags = item.extratags || {};
+    const name = item.name || item.namedetails?.name || item.display_name.split(",")[0];
+    return {
+      id: String(item.osm_type) + "-" + String(item.osm_id),
+      name,
+      address: buildAddress(item.address, item.display_name),
+      phone: tags["contact:phone"] || tags.phone || tags["contact:mobile"] || "",
+      website: tags["contact:website"] || tags.website || "",
+      category: [item.category, item.type].filter(Boolean).join(" · ") || categoryLabel(tags, kind),
+      latitude: Number(item.lat),
+      longitude: Number(item.lon),
+      mapUrl: "https://www.openstreetmap.org/?mlat=" + item.lat + "&mlon=" + item.lon + "#map=17/" + item.lat + "/" + item.lon,
+      source: "OpenStreetMap",
+      kind,
+    };
+  });
+  return { places };
+}
+
 export async function GET(request: Request) {
   try {
     await requireSession();
@@ -49,46 +251,37 @@ export async function GET(request: Request) {
     const query = (url.searchParams.get("query") || "").trim().slice(0, 140);
     const destination = (url.searchParams.get("destination") || "").trim().slice(0, 100);
     const kind = url.searchParams.get("kind") === "hotel" ? "hotel" : "attraction";
-    if (query.length < 3) return NextResponse.json({ error: "Enter at least 3 letters to search." }, { status: 400 });
+    const discover = url.searchParams.get("discover") === "1";
 
-    const searchText = [query, destination].filter(Boolean).join(", ");
-    const endpoint = new URL("https://nominatim.openstreetmap.org/search");
-    endpoint.search = new URLSearchParams({
-      q: searchText, format: "jsonv2", addressdetails: "1", extratags: "1",
-      namedetails: "1", limit: "7",
-    }).toString();
+    if (discover || !query) {
+      if (destination.length < 2) {
+        return NextResponse.json({ error: "Add a destination to the travel package before discovering nearby places." }, { status: 400 });
+      }
+      const result = await discoverMappedPlaces(destination, kind);
+      return NextResponse.json({
+        ...result,
+        attribution: "© OpenStreetMap contributors",
+        licenseUrl: "https://www.openstreetmap.org/copyright",
+        discoveryRadiusKm: 6.5,
+        notice: "Places shown are community-mapped suggestions. Opening hours, availability, addresses and service details may be incomplete. They are not confirmed tours or bookings.",
+      });
+    }
 
-    await waitForNominatimSlot();
-    const response = await fetch(endpoint, {
-      headers: {
-        "User-Agent": "TravelDesk/0.2 (travel agency itinerary place lookup)",
-        "Accept-Language": "en",
-      },
-      next: { revalidate: 86400 },
+    if (query.length < 3) {
+      return NextResponse.json({ error: "Enter at least 3 letters to search." }, { status: 400 });
+    }
+    const result = await searchNamedPlaces(query, destination, kind);
+    return NextResponse.json({
+      ...result,
+      attribution: "© OpenStreetMap contributors",
+      licenseUrl: "https://www.openstreetmap.org/copyright",
     });
-    if (!response.ok) return NextResponse.json({ error: "The free map search is temporarily unavailable. Please try again later." }, { status: 502 });
-    const items = await response.json() as NominatimItem[];
-    const places = items.map((item) => {
-      const tags = item.extratags || {};
-      const name = item.name || item.namedetails?.name || item.display_name.split(",")[0];
-      const address = buildAddress(item.address, item.display_name);
-      const phone = tags["contact:phone"] || tags.phone || tags["contact:mobile"] || "";
-      const website = tags["contact:website"] || tags.website || "";
-      return {
-        id: String(item.osm_type) + "-" + String(item.osm_id),
-        name, address, phone, website,
-        category: [item.category, item.type].filter(Boolean).join(" · "),
-        latitude: Number(item.lat), longitude: Number(item.lon),
-        mapUrl: "https://www.openstreetmap.org/?mlat=" + item.lat + "&mlon=" + item.lon + "#map=17/" + item.lat + "/" + item.lon,
-        source: "OpenStreetMap",
-        kind,
-      };
-    });
-    return NextResponse.json({ places, attribution: "© OpenStreetMap contributors", licenseUrl: "https://www.openstreetmap.org/copyright" });
   } catch (error) {
-    const message = error instanceof Error && error.message === "UNAUTHENTICATED"
-      ? "Please sign in to search places."
-      : "Could not search places right now. Please try again.";
-    return NextResponse.json({ error: message }, { status: message.startsWith("Please sign in") ? 401 : 502 });
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Please sign in to search places." }, { status: 401 });
+    }
+    const message = error instanceof Error ? error.message : "Could not search places right now. Please try again.";
+    const status = /temporarily|busy|limiting|try again|could not locate/i.test(message) ? 503 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }
