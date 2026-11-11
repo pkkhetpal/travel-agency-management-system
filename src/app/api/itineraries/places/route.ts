@@ -139,13 +139,12 @@ async function discoverMappedPlaces(destination: string, kind: "hotel" | "attrac
       ];
 
   const query = "[out:json][timeout:18];(" + selectors.join("") + ");out center tags 45;";
-  const response = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
+  const endpoint = new URL("https://overpass-api.de/api/interpreter");
+  endpoint.searchParams.set("data", query);
+  const response = await fetch(endpoint, {
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
       "User-Agent": "TravelDesk/0.2 (travel agency itinerary place lookup)",
     },
-    body: new URLSearchParams({ data: query }).toString(),
     next: { revalidate: 21600 },
     signal: AbortSignal.timeout(22000),
   });
