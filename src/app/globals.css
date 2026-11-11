@@ -173,6 +173,66 @@ body{background:var(--bg);color:var(--ink)}
 .auth-brand-name small{color:#a98445;font-size:8px;font-weight:750;letter-spacing:1.8px}
 .auth-brand .brand-mark{background:#f3ead9;color:#a98445;border:1px solid #eadcc3}
 
+
+/* Connected Prime Holidays Trip File */
+.trip-file{display:flex;flex-direction:column;gap:16px}
+.trip-back,.trip-footer-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.trip-back a,.trip-footer-actions a{font-size:11px;color:#8b6a38;font-weight:650;text-decoration:none}
+.trip-back a:hover,.trip-footer-actions a:hover{text-decoration:underline}
+.trip-hero{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:23px 24px}
+.trip-hero-copy{min-width:0}
+.trip-hero-copy h1{margin:5px 0 6px;font-size:25px;letter-spacing:-.6px;color:#17243a}
+.trip-title-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.trip-hero-copy p{margin:0;color:#778296;font-size:11px}
+.trip-hero-copy p span{padding:0 4px;color:#c2b59f}
+.trip-hero-actions{display:flex;gap:8px;flex-shrink:0}
+.trip-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.trip-summary-card{min-width:0;padding:15px 16px;background:#fffdfa;border:1px solid #e9e2d7;border-radius:11px;display:flex;flex-direction:column;gap:6px}
+.trip-summary-card>span{display:flex;align-items:center;gap:7px;color:#9a8158;font-size:9px;font-weight:750;letter-spacing:.65px}
+.trip-summary-card>b{font-size:14px;color:#23334c;overflow-wrap:anywhere}
+.trip-summary-card>small{font-size:10px;color:#8290a2;line-height:1.45;overflow-wrap:anywhere}
+.trip-content-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;align-items:start}
+.trip-panel{padding:19px}
+.trip-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.trip-panel-heading h2{margin:0 0 5px;font-size:14px;color:#20314a}
+.trip-panel-heading p{margin:0;color:#7d899a;font-size:10px;line-height:1.45}
+.trip-count{flex-shrink:0;padding:5px 8px;border:1px solid #e9e2d7;border-radius:20px;color:#8a7047;font-size:9px;font-weight:700;letter-spacing:.35px}
+.trip-service-list,.trip-day-list,.trip-ledger-list{display:flex;flex-direction:column;gap:9px}
+.trip-service-card{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid #eee9df;border-radius:9px;background:#fff}
+.trip-service-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.trip-service-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trip-service-title>b{font-size:11px;color:#32425a;overflow-wrap:anywhere}
+.trip-service-copy>small{font-size:10px;color:#8490a0;line-height:1.4;overflow-wrap:anywhere}
+.trip-service-card .button{flex-shrink:0}
+.trip-day{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #f0ece5}
+.trip-day:last-child{border-bottom:0}
+.trip-day-marker{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#f4ecde;color:#906b34;font-size:11px;font-weight:750}
+.trip-day>div:last-child{display:flex;flex-direction:column;gap:5px;min-width:0}
+.trip-day b{font-size:11px;color:#32425a}
+.trip-day small{font-size:10px;color:#8490a0;line-height:1.4}
+.trip-day p{margin:0;color:#56657b;font-size:11px;line-height:1.6;white-space:pre-line}
+.trip-empty{padding:26px 14px;text-align:center;border:1px dashed #e3dccf;border-radius:9px;background:#fffefa}
+.trip-empty b{display:block;color:#34435b;font-size:12px}
+.trip-empty p{margin:6px auto 10px;max-width:340px;color:#7d899a;font-size:10px;line-height:1.5}
+.trip-empty a{margin:0}
+.trip-finance-panel{margin-top:0}
+.trip-finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.trip-finance-grid h3{margin:0 0 10px;color:#34435b;font-size:12px}
+.trip-ledger-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #f0ece5}
+.trip-ledger-row:last-child{border-bottom:0}
+.trip-ledger-row>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.trip-ledger-row b{font-size:10px;color:#34435b;overflow-wrap:anywhere}
+.trip-ledger-row small{font-size:9px;color:#8490a0;line-height:1.4}
+.trip-ledger-row>strong{flex-shrink:0;color:#34435b;font-size:10px;text-align:right}
+.trip-ledger-empty{margin:0;padding:12px 0;color:#8490a0;font-size:10px}
+.trip-currency-total{margin:8px 0 0;padding-top:8px;border-top:1px solid #eee9df;color:#778296;font-size:10px}
+.trip-currency-total b{color:#34435b}
+.trip-private-note{display:flex;align-items:flex-start;gap:7px;margin-top:14px;padding:10px 12px;background:#f8f5ed;border:1px solid #eee5d5;border-radius:8px;color:#7d6949;font-size:10px;line-height:1.5}
+.trip-private-note svg{flex-shrink:0;margin-top:1px}
+.trip-footer-actions{padding:4px 2px 2px}
+@media(max-width:950px){.trip-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trip-content-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.trip-hero{align-items:stretch;flex-direction:column;padding:18px}.trip-hero-actions .button{width:100%;justify-content:center}.trip-summary-grid,.trip-finance-grid{grid-template-columns:1fr}.trip-panel{padding:15px}.trip-back,.trip-footer-actions{align-items:flex-start;flex-direction:column}.trip-service-card{align-items:flex-start;flex-direction:column}.trip-service-card .button{align-self:flex-start}}
+
 /* Client service voucher action */
 .voucher-button{padding:6px 9px;font-size:10px;white-space:nowrap;border-color:#e4d7c2;color:#86642f}
 .voucher-button:hover{background:#fbf7ef;border-color:#cdb991}
