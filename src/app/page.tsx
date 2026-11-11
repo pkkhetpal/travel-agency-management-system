@@ -4,6 +4,7 @@ import {
   ClipboardList, FileText, Plane, Plus, TrendingUp, Users, Building2,
 } from "lucide-react";
 import { requirePageSession } from "@/lib/page-auth";
+import { DashboardRefresh } from "@/components/dashboard-refresh";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,10 @@ export default async function Dashboard() {
         <h1>Welcome back, {session.name} <span>✦</span></h1>
         <p>Here is the current activity recorded for your agency.</p>
       </div>
-      <Link className="button button-primary" href="/enquiries"><Plus size={17}/> New enquiry</Link>
+      <div className="heading-actions">
+        <DashboardRefresh />
+        <Link className="button button-primary" href="/enquiries"><Plus size={17}/> New enquiry</Link>
+      </div>
     </div>
 
     <section className="stats-grid" aria-label="Live agency totals">
