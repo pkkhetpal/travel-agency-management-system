@@ -344,6 +344,7 @@ export function SalesWorkspace({ kind }: { kind: Kind }) {
               <button className="icon-button danger-icon" title="Delete" onClick={() => remove(record)}><Trash2 size={15}/></button>
               {kind === "enquiries" && <Link className="workflow-link" href={"/quotations?enquiryId=" + record.id}>Create quotation</Link>}
               {kind === "quotations" && <Link className="workflow-link" href={"/packages?quotationId=" + record.id}>Make package</Link>}
+              {kind === "packages" && <Link className="workflow-link" href={"/packages/" + record.id}>Open trip file →</Link>}
             </div></td>
           </tr>;
         })}
